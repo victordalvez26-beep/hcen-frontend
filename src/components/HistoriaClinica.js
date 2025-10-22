@@ -260,7 +260,7 @@ const HistoriaClinica = () => {
                   <i className="flaticon-file" style={{marginRight: '8px', color: '#3b82f6'}}></i>
                   Categoría
                 </h5>
-                <div className="nice-select" style={{width: '100%'}}>
+                <div className="" style={{width: '100%'}}>
                   <select 
                     value={filtros.categoria} 
                     onChange={(e) => handleFiltroChange('categoria', e.target.value)}
@@ -297,7 +297,7 @@ const HistoriaClinica = () => {
                   <i className="flaticon-hospital" style={{marginRight: '8px', color: '#3b82f6'}}></i>
                   Institución
                 </h5>
-                <div className="nice-select" style={{width: '100%'}}>
+                <div className="" style={{width: '100%'}}>
                   <select 
                     value={filtros.institucion} 
                     onChange={(e) => handleFiltroChange('institucion', e.target.value)}
@@ -334,7 +334,7 @@ const HistoriaClinica = () => {
                   <i className="flaticon-doctor" style={{marginRight: '8px', color: '#3b82f6'}}></i>
                   Profesional
                 </h5>
-                <div className="nice-select" style={{width: '100%'}}>
+                <div className="" style={{width: '100%'}}>
                   <select 
                     value={filtros.profesional} 
                     onChange={(e) => handleFiltroChange('profesional', e.target.value)}

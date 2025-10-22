@@ -10,7 +10,7 @@ const Header = ({ user, activePage = '' }) => {
               <div className="col-xl-3 col-lg-3">
                 <div className="logo-img">
                   <a href="/">
-                    <img src="/assets/img/logo.png" alt="HCEN" style={{maxHeight: '35px'}} />
+                    <img src="/assets/img/logo.png" alt="HCEN" style={{maxHeight: '110px'}} />
                   </a>
                 </div>
               </div>

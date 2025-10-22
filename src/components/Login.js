@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import PerfilUsuario from './PerfilUsuario';
+import GestionClinicas from './GestionClinicas';
 
 const Login = () => {
   const [user, setUser] = useState(null);
@@ -45,7 +47,27 @@ const Login = () => {
       
       if (data.authenticated) {
         console.log('Sesión activa para:', data.nombre);
-        setUser(data);
+        
+        // Obtener información completa del usuario incluyendo el rol
+        try {
+          const profileResponse = await fetch('http://localhost:8080/api/users/profile', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            setUser({...data, ...profileData});
+          } else {
+            setUser(data);
+          }
+        } catch (profileError) {
+          console.error('Error obteniendo perfil del usuario:', profileError);
+          setUser(data);
+        }
       } else {
         console.log('No hay sesión activa');
         setUser(null);
@@ -168,6 +190,10 @@ const Login = () => {
                               <i className="flaticon-verified" style={{color: '#1f2b7b'}}></i> 
                               <strong>Documento:</strong> {user.documento || 'No disponible'}
                             </li>
+                            <li style={{marginBottom: '15px', color: '#333'}}> 
+                              <i className="flaticon-verified" style={{color: '#1f2b7b'}}></i> 
+                              <strong>Rol:</strong> {user.rolDescripcion || 'Usuario de la Salud'}
+                            </li>
                           </ul>
                           
                           <details style={{marginTop: '30px', textAlign: 'left'}}>
@@ -179,6 +205,25 @@ const Login = () => {
                             </pre>
                           </details>
                         </div>
+                      </div>
+                    </div>
+                    
+                    {/* Contenido según rol del usuario */}
+                    <div className="row justify-content-center mt-4">
+                      <div className="col-xl-12">
+                        {user.rol === 'AD' ? (
+                          // Administrador HCEN - Gestión de Clínicas
+                          <GestionClinicas />
+                        ) : (
+                          // Usuario de la Salud - Perfil de Usuario
+                          <PerfilUsuario 
+                            user={user} 
+                            onUpdate={(data) => {
+                              console.log('Perfil actualizado:', data);
+                              // Aquí podrías actualizar el usuario en el backend
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
