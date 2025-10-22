@@ -6,6 +6,8 @@ import DetalleDocumento from './components/DetalleDocumento';
 import CompleteProfile from './components/CompleteProfile';
 import Header from './components/Header';
 import './App.css';
+import './styles/colors.css';
+import './styles/components.css';
 
 function AppContent() {
   const [user, setUser] = useState(null);
@@ -48,7 +50,7 @@ function AppContent() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa'
+        backgroundColor: 'var(--background-color)'
       }}>
         <div className="text-center">
           <div className="spinner-border text-primary" role="status">

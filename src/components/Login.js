@@ -100,7 +100,7 @@ const Login = () => {
 
   if (loading) {
     return (
-      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center'}}>
+      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center', backgroundColor: 'var(--background-color)'}}>
         <div className="container">
           <div className="row">
             <div className="col-xl-12">
