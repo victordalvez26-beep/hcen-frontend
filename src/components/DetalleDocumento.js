@@ -6,9 +6,11 @@ const DetalleDocumento = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingDocumento, setLoadingDocumento] = useState(false);
   const [documento, setDocumento] = useState(null);
+  const [error, setError] = useState(null);
 
-  // Datos hardcodeados de documentos clínicos (mismo que en HistoriaClinica)
+  // Datos de respaldo para demo (se eliminará cuando haya datos reales)
   const documentosClinicos = [
     {
       id: 1,
@@ -164,9 +166,13 @@ const DetalleDocumento = () => {
 
   useEffect(() => {
     checkSession();
-    const doc = documentosClinicos.find(d => d.id === parseInt(id));
-    setDocumento(doc);
-  }, [id]);
+  }, []);
+
+  useEffect(() => {
+    if (user && id) {
+      loadDocumento(id);
+    }
+  }, [user, id]);
 
   const checkSession = async () => {
     try {
@@ -190,6 +196,71 @@ const DetalleDocumento = () => {
       setUser(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDocumento = async (documentoId) => {
+    setLoadingDocumento(true);
+    setError(null);
+    try {
+      const response = await fetch(`http://localhost:8080/hcen-rndc-service/api/rndc/documentos/${documentoId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Profesional-Id': user?.uid || ''
+        }
+      });
+
+      if (!response.ok) {
+        // Si no existe en el backend, usar datos de respaldo
+        const doc = documentosClinicos.find(d => d.id === parseInt(documentoId));
+        if (doc) {
+          setDocumento(doc);
+        } else {
+          throw new Error('Documento no encontrado');
+        }
+        return;
+      }
+
+      const documentoBackend = await response.json();
+      
+      // Mapear el documento del backend al formato esperado
+      const documentoMapeado = {
+        id: documentoBackend.id || parseInt(documentoId),
+        fecha: documentoBackend.fechaCreacion || 'N/A',
+        institucion: documentoBackend.clinicaOrigen || 'Institución Desconocida',
+        categoria: documentoBackend.tipoDocumento || 'Sin Categoría',
+        profesional: documentoBackend.profesionalSalud || 'Profesional Desconocido',
+        descripcion: documentoBackend.descripcion || 'Sin descripción disponible',
+        formatoDocumento: documentoBackend.formatoDocumento,
+        uriDocumento: documentoBackend.uriDocumento,
+        accesoPermitido: documentoBackend.accesoPermitido !== false,
+        detalles: {
+          motivo: documentoBackend.descripcion || 'No especificado',
+          observaciones: 'Documento del sistema RNDC'
+        },
+        archivos: documentoBackend.uriDocumento ? [
+          { 
+            nombre: `documento_${documentoId}.pdf`, 
+            tipo: documentoBackend.formatoDocumento || 'PDF',
+            url: documentoBackend.uriDocumento
+          }
+        ] : []
+      };
+
+      setDocumento(documentoMapeado);
+    } catch (error) {
+      console.error('Error cargando documento:', error);
+      // Intentar usar datos de respaldo
+      const doc = documentosClinicos.find(d => d.id === parseInt(documentoId));
+      if (doc) {
+        setDocumento(doc);
+      } else {
+        setError('No se pudo cargar el documento. Por favor, intente más tarde.');
+      }
+    } finally {
+      setLoadingDocumento(false);
     }
   };
 
