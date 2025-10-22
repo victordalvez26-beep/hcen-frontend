@@ -55,7 +55,7 @@ const HistoriaClinica = () => {
     setLoadingDocumentos(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8080/api/rndc/documentos/paciente/${ci}`, {
+      const response = await fetch(`http://localhost:8080/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
