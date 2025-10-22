@@ -4,6 +4,8 @@ import Home from './components/Home';
 import HistoriaClinica from './components/HistoriaClinica';
 import DetalleDocumento from './components/DetalleDocumento';
 import CompleteProfile from './components/CompleteProfile';
+import GestionClinicas from './components/GestionClinicas';
+import GestionUsuarios from './components/GestionUsuarios';
 import Header from './components/Header';
 import './App.css';
 import './styles/colors.css';
@@ -66,6 +68,8 @@ function AppContent() {
     if (location.pathname === '/') return 'home';
     if (location.pathname === '/historia-clinica') return 'historia';
     if (location.pathname.startsWith('/documento/')) return 'historia';
+    if (location.pathname === '/gestion-clinicas') return 'gestion-clinicas';
+    if (location.pathname === '/gestion-usuarios') return 'gestion-usuarios';
     return '';
   };
 
@@ -79,25 +83,77 @@ function AppContent() {
     return children;
   };
 
+  const AdminRoute = ({ children }) => {
+    if (!user) {
+      return <Navigate to="/" replace />;
+    }
+    if (user && !user.profileCompleted) {
+      return <Navigate to="/complete-profile" replace />;
+    }
+    if (user && user.rol !== 'AD') {
+      return (
+        <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center'}}>
+          <div className="container">
+            <div className="row">
+              <div className="col-xl-12">
+                <div className="slider_text text-center">
+                  <h3 style={{color: 'var(--primary-color)', marginBottom: '20px'}}>Acceso Restringido</h3>
+                  <p style={{color: 'var(--text-secondary)', fontSize: '18px', marginBottom: '30px'}}>
+                    Esta sección es solo para administradores
+                  </p>
+                  <a href="/" className="boxed-btn3" style={{
+                    padding: '12px 24px',
+                    fontSize: '14px',
+                    textDecoration: 'none',
+                    backgroundColor: 'var(--primary-color)',
+                    color: '#ffffff',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    display: 'inline-block'
+                  }}>
+                    Volver al Inicio
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return children;
+  };
+
   return (
     <div className="App">
       {location.pathname !== '/complete-profile' && <Header user={user} activePage={getActivePage()} />}
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/complete-profile" element={
-          user && !user.profileCompleted ? <CompleteProfile /> : <Navigate to="/" replace />
+      <div style={{ paddingTop: location.pathname !== '/complete-profile' ? '70px' : '0' }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/complete-profile" element={
+            user && !user.profileCompleted ? <CompleteProfile /> : <Navigate to="/" replace />
+          } />
+          <Route path="/historia-clinica" element={
+            <ProtectedRoute>
+              <HistoriaClinica />
+            </ProtectedRoute>
+          } />
+          <Route path="/documento/:id" element={
+            <ProtectedRoute>
+              <DetalleDocumento />
+            </ProtectedRoute>
+          } />
+        <Route path="/gestion-clinicas" element={
+          <AdminRoute>
+            <GestionClinicas />
+          </AdminRoute>
         } />
-        <Route path="/historia-clinica" element={
-          <ProtectedRoute>
-            <HistoriaClinica />
-          </ProtectedRoute>
+        <Route path="/gestion-usuarios" element={
+          <AdminRoute>
+            <GestionUsuarios />
+          </AdminRoute>
         } />
-        <Route path="/documento/:id" element={
-          <ProtectedRoute>
-            <DetalleDocumento />
-          </ProtectedRoute>
-        } />
-      </Routes>
+        </Routes>
+      </div>
     </div>
   );
 }

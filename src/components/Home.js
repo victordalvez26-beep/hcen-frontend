@@ -77,10 +77,10 @@ const Home = () => {
   }
 
   return (
-    <div className="slider_area" style={{marginTop: '60px', minHeight: 'calc(100vh - 60px)'}}>
+    <div className="slider_area" style={{minHeight: '100vh'}}>
         <div className="slider_active">
           <div className="single_slider d-flex align-items-center slider_bg_1 overlay" style={{
-            minHeight: 'calc(100vh - 60px)',
+            minHeight: '100vh',
             background: 'linear-gradient(135deg, #1f2b7b 0%, #3b82f6 50%, #06b6d4 100%)',
             position: 'relative',
             overflow: 'hidden'
