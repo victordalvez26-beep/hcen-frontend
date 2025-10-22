@@ -5,83 +5,24 @@ const HistoriaClinica = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [documentosClinicos, setDocumentosClinicos] = useState([]);
+  const [loadingDocumentos, setLoadingDocumentos] = useState(false);
+  const [error, setError] = useState(null);
   const [filtros, setFiltros] = useState({
     categoria: 'todos',
     institucion: 'todos',
     profesional: 'todos'
   });
 
-  // Datos hardcodeados de documentos clínicos
-  const documentosClinicos = [
-    {
-      id: 1,
-      fecha: '2024-10-15',
-      institucion: 'Hospital de Clínicas',
-      categoria: 'Policlínica',
-      profesional: 'Dr. María González',
-      descripcion: 'Consulta de control de rutina con evaluación general del estado de salud.'
-    },
-    {
-      id: 2,
-      fecha: '2024-10-12',
-      institucion: 'Laboratorio Central',
-      categoria: 'Laboratorio',
-      profesional: 'Dr. Carlos Pérez',
-      descripcion: 'Análisis de sangre completo incluyendo hemograma y perfil bioquímico.'
-    },
-    {
-      id: 3,
-      fecha: '2024-10-08',
-      institucion: 'Centro de Diagnóstico por Imágenes',
-      categoria: 'Imagenología',
-      profesional: 'Dr. Ana Rodríguez',
-      descripcion: 'Radiografía de tórax para control rutinario y evaluación pulmonar.'
-    },
-    {
-      id: 4,
-      fecha: '2024-10-15',
-      institucion: 'Hospital de Clínicas',
-      categoria: 'Policlínica',
-      profesional: 'Dr. María González',
-      descripcion: 'Prescripción de medicamentos para control de presión arterial.'
-    },
-    {
-      id: 5,
-      fecha: '2024-10-05',
-      institucion: 'Instituto de Cardiología',
-      categoria: 'Especialidad',
-      profesional: 'Dr. Roberto Silva',
-      descripcion: 'Evaluación cardiológica completa con electrocardiograma incluido.'
-    },
-    {
-      id: 6,
-      fecha: '2024-09-28',
-      institucion: 'Centro de Vacunación',
-      categoria: 'Vacunación',
-      profesional: 'Enf. Laura Martínez',
-      descripcion: 'Aplicación de vacuna antigripal estacional para prevención.'
-    },
-    {
-      id: 7,
-      fecha: '2024-09-15',
-      institucion: 'Centro de Diagnóstico por Imágenes',
-      categoria: 'Imagenología',
-      profesional: 'Dr. Patricia López',
-      descripcion: 'Ecografía abdominal para evaluación de órganos internos.'
-    },
-    {
-      id: 8,
-      fecha: '2024-09-10',
-      institucion: 'Laboratorio Central',
-      categoria: 'Laboratorio',
-      profesional: 'Dr. Miguel Torres',
-      descripcion: 'Análisis de orina completo con cultivo y antibiograma.'
-    }
-  ];
-
   useEffect(() => {
     checkSession();
   }, []);
+
+  useEffect(() => {
+    if (user && user.documento) {
+      loadDocumentos(user.documento);
+    }
+  }, [user]);
   
   const checkSession = async () => {
     try {
@@ -107,6 +48,48 @@ const HistoriaClinica = () => {
       window.location.href = '/';
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDocumentos = async (ci) => {
+    setLoadingDocumentos(true);
+    setError(null);
+    try {
+      const response = await fetch(`http://localhost:8080/api/rndc/documentos/paciente/${ci}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Profesional-Id': user?.uid || ''
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al cargar documentos');
+      }
+
+      const documentos = await response.json();
+      
+      // Mapear los documentos del backend al formato esperado por el frontend
+      const documentosMapeados = documentos.map(doc => ({
+        id: doc.id || Math.random(),
+        fecha: doc.fechaCreacion || 'N/A',
+        institucion: doc.clinicaOrigen || 'Institución Desconocida',
+        categoria: doc.tipoDocumento || 'Sin Categoría',
+        profesional: doc.profesionalSalud || 'Profesional Desconocido',
+        descripcion: doc.descripcion || 'Sin descripción disponible',
+        formatoDocumento: doc.formatoDocumento,
+        uriDocumento: doc.uriDocumento,
+        accesoPermitido: doc.accesoPermitido !== false
+      }));
+
+      setDocumentosClinicos(documentosMapeados);
+    } catch (error) {
+      console.error('Error cargando documentos:', error);
+      setError('No se pudieron cargar los documentos clínicos. Por favor, intente más tarde.');
+      setDocumentosClinicos([]);
+    } finally {
+      setLoadingDocumentos(false);
     }
   };
 
@@ -393,8 +376,51 @@ const HistoriaClinica = () => {
 
           {/* Lista de documentos */}
           <div className="col-xl-9 col-lg-8">
-            <div className="row">
-              {documentosFiltrados.map(documento => (
+            {loadingDocumentos ? (
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '60px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.08)'
+              }}>
+                <div className="spinner-border text-primary" role="status" style={{marginBottom: '20px'}}>
+                  <span className="sr-only">Cargando...</span>
+                </div>
+                <p style={{color: '#64748b', fontSize: '16px'}}>Cargando documentos clínicos...</p>
+              </div>
+            ) : error ? (
+              <div style={{
+                backgroundColor: '#fff1f2',
+                padding: '40px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                border: '1px solid #fecaca'
+              }}>
+                <i className="flaticon-warning" style={{fontSize: '48px', color: '#dc2626', marginBottom: '15px'}}></i>
+                <p style={{color: '#dc2626', fontSize: '16px', marginBottom: '0'}}>{error}</p>
+              </div>
+            ) : documentosFiltrados.length === 0 ? (
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '60px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.08)'
+              }}>
+                <i className="flaticon-folder" style={{fontSize: '64px', color: '#cbd5e1', marginBottom: '20px'}}></i>
+                <h4 style={{color: '#475569', marginBottom: '10px'}}>
+                  {documentosClinicos.length === 0 ? 'No hay documentos disponibles' : 'No se encontraron documentos'}
+                </h4>
+                <p style={{color: '#64748b'}}>
+                  {documentosClinicos.length === 0 
+                    ? 'Aún no tienes documentos clínicos registrados en el sistema.'
+                    : 'Intenta cambiar los filtros para ver más resultados.'}
+                </p>
+              </div>
+            ) : (
+              <div className="row">
+                {documentosFiltrados.map(documento => (
                 <div key={documento.id} className="col-xl-12" style={{marginBottom: '35px'}}>
                   <div className="single_blog" style={{
                     backgroundColor: '#ffffff',
@@ -563,17 +589,8 @@ const HistoriaClinica = () => {
                   </div>
                 </div>
               ))}
-              
-              {documentosFiltrados.length === 0 && (
-                <div className="col-xl-12">
-                  <div className="text-center" style={{padding: '60px 20px'}}>
-                    <i className="flaticon-search" style={{fontSize: '48px', color: '#ccc', marginBottom: '20px'}}></i>
-                    <h4 style={{color: '#666'}}>No se encontraron documentos</h4>
-                    <p style={{color: '#999'}}>Intenta ajustar los filtros para ver más resultados</p>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
