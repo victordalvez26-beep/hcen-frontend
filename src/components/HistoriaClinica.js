@@ -19,8 +19,17 @@ const HistoriaClinica = () => {
   }, []);
 
   useEffect(() => {
-    if (user && user.documento) {
+    console.log('🔄 useEffect ejecutado. User:', user);
+    if (user && user.documento && user.documento.trim() !== '') {
+      console.log('📋 Usuario tiene documento:', user.documento);
       loadDocumentos(user.documento);
+    } else if (user && user.uid === 'uy-ci-53472408') {
+      // TEMPORAL: Usar documento hardcodeado para testing
+      console.log('🔧 TEMPORAL: Usando documento hardcodeado 53472408');
+      loadDocumentos('53472408');
+    } else {
+      console.log('❌ Usuario no tiene documento o no está logueado');
+      console.log('User:', user);
     }
   }, [user]);
   
@@ -37,8 +46,12 @@ const HistoriaClinica = () => {
       const data = await response.json();
       
       if (data.authenticated) {
+        console.log('👤 Datos del usuario recibidos:', data);
+        console.log('📋 Campo documento:', data.documento);
+        console.log('📋 Todos los campos del usuario:', Object.keys(data));
         setUser(data);
       } else {
+        console.log('❌ Sesión no válida, redirigiendo a login');
         setUser(null);
         window.location.href = '/';
       }
@@ -54,8 +67,12 @@ const HistoriaClinica = () => {
   const loadDocumentos = async (ci) => {
     setLoadingDocumentos(true);
     setError(null);
+    console.log('🔍 Cargando documentos para CI:', ci);
     try {
-      const response = await fetch(`http://localhost:8080/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`, {
+      const url = `http://localhost:8080/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`;
+      console.log('🌐 URL:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -64,15 +81,20 @@ const HistoriaClinica = () => {
         }
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers);
+
       if (!response.ok) {
-        throw new Error('Error al cargar documentos');
+        throw new Error(`Error al cargar documentos: ${response.status}`);
       }
 
       const documentos = await response.json();
+      console.log('📄 Documentos recibidos del backend:', documentos);
+      console.log('🆔 IDs de documentos del backend:', documentos.map(doc => doc.id));
       
       // Mapear los documentos del backend al formato esperado por el frontend
-      const documentosMapeados = documentos.map(doc => ({
-        id: doc.id || Math.random(),
+      const documentosMapeados = documentos.map((doc, index) => ({
+        id: doc.id || (index + 1), // Usar ID real del backend o índice + 1
         fecha: doc.fechaCreacion || 'N/A',
         institucion: doc.clinicaOrigen || 'Institución Desconocida',
         categoria: doc.tipoDocumento || 'Sin Categoría',
@@ -83,9 +105,11 @@ const HistoriaClinica = () => {
         accesoPermitido: doc.accesoPermitido !== false
       }));
 
+      console.log('💾 Documentos mapeados guardados en estado:', documentosMapeados);
       setDocumentosClinicos(documentosMapeados);
     } catch (error) {
-      console.error('Error cargando documentos:', error);
+      console.error('❌ Error cargando documentos:', error);
+      console.error('❌ Error details:', error.message);
       setError('No se pudieron cargar los documentos clínicos. Por favor, intente más tarde.');
       setDocumentosClinicos([]);
     } finally {
@@ -114,6 +138,10 @@ const HistoriaClinica = () => {
   const categorias = [...new Set(documentosClinicos.map(doc => doc.categoria))];
   const instituciones = [...new Set(documentosClinicos.map(doc => doc.institucion))];
   const profesionales = [...new Set(documentosClinicos.map(doc => doc.profesional))];
+
+  console.log('🎨 Renderizando con documentosClinicos:', documentosClinicos);
+  console.log('🎨 Cantidad de documentos:', documentosClinicos.length);
+  console.log('🎨 Documentos filtrados:', documentosFiltrados.length);
 
   if (loading) {
     return (
