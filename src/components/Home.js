@@ -108,7 +108,7 @@ const Home = () => {
                       marginBottom: '20px',
                       display: 'block'
                     }}>
-                      Sistema Nacional de Salud
+                      HCEN
                     </span>
                     <h3 style={{
                       fontSize: '56px',
@@ -134,7 +134,7 @@ const Home = () => {
                       Accede de forma segura a tu información médica y mantén un control completo de tu salud
                     </p>
                     {user ? (
-                      <a href="/historia-clinica" className="boxed-btn5" style={{
+                      <a href="/historia-clinica" style={{
                         padding: '18px 40px',
                         fontSize: '16px',
                         fontWeight: '600',
@@ -146,7 +146,9 @@ const Home = () => {
                         backgroundColor: '#ffffff',
                         color: '#1f2b7b',
                         textDecoration: 'none',
-                        display: 'inline-block'
+                        display: 'inline-block',
+                        border: '2px solid #1f2b7b',
+                        cursor: 'pointer'
                       }}
                       onMouseEnter={(e) => {
                         e.target.style.backgroundColor = '#f8fafc';
@@ -160,7 +162,7 @@ const Home = () => {
                         Ver Mi Historia Clínica
                       </a>
                     ) : (
-                      <a onClick={handleGubUyLogin} className="boxed-btn5" style={{
+                      <a onClick={handleGubUyLogin} style={{
                         cursor: 'pointer',
                         padding: '18px 40px',
                         fontSize: '16px',
@@ -173,7 +175,8 @@ const Home = () => {
                         backgroundColor: '#ffffff',
                         color: '#1f2b7b',
                         textDecoration: 'none',
-                        display: 'inline-block'
+                        display: 'inline-block',
+                        border: '2px solid #1f2b7b'
                       }}
                       onMouseEnter={(e) => {
                         e.target.style.backgroundColor = '#f8fafc';

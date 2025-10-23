@@ -171,7 +171,7 @@ const Login = () => {
                     
                     <div className="row justify-content-center mt-5">
                       <div className="col-xl-8">
-                        <div className="welcome_docmed_info" style={{backgroundColor: 'rgba(255,255,255,0.95)', padding: '40px', borderRadius: '10px'}}>
+                        <div className="welcome_hcen_info" style={{backgroundColor: 'rgba(255,255,255,0.95)', padding: '40px', borderRadius: '10px'}}>
                           <h4 style={{color: '#1f2b7b', marginBottom: '30px'}}>Información del Usuario</h4>
                           <ul style={{listStyle: 'none', padding: 0}}>
                             <li style={{marginBottom: '15px', color: '#333'}}> 
@@ -240,7 +240,7 @@ const Login = () => {
                 <div className="row">
                   <div className="col-xl-12">
                     <div className="slider_text text-center">
-                      <span>Sistema Nacional de Salud</span>
+                      <span>HCEN</span>
                       <h3><span>Historia Clínica</span> <br />
                         Electrónica Nacional</h3>
                       <p style={{color: '#fff', marginTop: '20px', marginBottom: '40px'}}>
@@ -306,11 +306,11 @@ const Login = () => {
                 <div className="footer_widget">
                   <div className="footer_logo">
                     <a href="/">
-                      <img src="/assets/img/footer_logo.png" alt="" style={{maxWidth: '150px'}} />
+                      <img src="/assets/img/logo.png" alt="HCEN" style={{maxWidth: '150px'}} />
                     </a>
                   </div>
                   <p>
-                    Sistema Nacional de Historia Clínica Electrónica de Uruguay
+                    HCEN - Historia Clínica Electrónica Nacional
                   </p>
                 </div>
               </div>

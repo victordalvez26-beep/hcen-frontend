@@ -632,11 +632,11 @@ const HistoriaClinica = () => {
                 <div className="footer_widget">
                   <div className="footer_logo">
                     <a href="/">
-                      <img src="/assets/img/footer_logo.png" alt="" style={{maxWidth: '150px'}} />
+                      <img src="/assets/img/logo.png" alt="HCEN" style={{maxWidth: '150px'}} />
                     </a>
                   </div>
                   <p>
-                    Sistema Nacional de Historia Clínica Electrónica de Uruguay
+                    HCEN - Historia Clínica Electrónica Nacional
                   </p>
                 </div>
               </div>

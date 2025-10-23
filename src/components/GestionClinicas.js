@@ -44,7 +44,7 @@ const GestionClinicas = () => {
         const data = await response.json();
         setNodos(data);
       } else {
-        showMessage('Error cargando nodos periféricos', 'error');
+        showMessage('Error cargando clínicas', 'error');
       }
     } catch (error) {
       console.error('Error cargando nodos:', error);
@@ -212,7 +212,7 @@ const GestionClinicas = () => {
           <div className="row">
             <div className="col-xl-12">
               <div className="slider_text text-center">
-                <h3>Cargando nodos periféricos...</h3>
+                <h3>Cargando clínicas...</h3>
               </div>
             </div>
           </div>
@@ -242,7 +242,7 @@ const GestionClinicas = () => {
                   marginBottom: '15px',
                   textShadow: '0 2px 4px rgba(0,0,0,0.3)'
                 }}>
-                  Gestión de Nodos Periféricos
+                  Gestión de Clínicas
                 </h3>
                 <p style={{
                   color: '#e2e8f0',
@@ -275,7 +275,7 @@ const GestionClinicas = () => {
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h4 style={{color: '#1f2937', fontWeight: '600'}}>
                 <i className="fa fa-hospital" style={{marginRight: '10px', color: '#3b82f6'}}></i>
-                Nodos Periféricos Registrados
+                Clínicas Registradas
               </h4>
               <button 
                 style={{
@@ -525,7 +525,7 @@ const GestionClinicas = () => {
                 {nodos.length === 0 ? (
                   <div className="text-center py-5">
                     <i className="fa fa-hospital" style={{fontSize: '64px', color: '#d1d5db', marginBottom: '20px'}}></i>
-                    <p style={{color: '#6b7280', fontSize: '18px'}}>No hay nodos periféricos registrados</p>
+                    <p style={{color: '#6b7280', fontSize: '18px'}}>No hay clínicas registradas</p>
                   </div>
                 ) : (
                   <div className="table-responsive">

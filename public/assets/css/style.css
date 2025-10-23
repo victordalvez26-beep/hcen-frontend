@@ -1402,13 +1402,13 @@ h3 {
 }
 
 /* line 42, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-.welcome_clicnic_area .welcome_docmed_info {
+.welcome_clicnic_area .welcome_hcen_info {
   padding-left: 40px;
 }
 
 @media (max-width: 767px) {
   /* line 42, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-  .welcome_clicnic_area .welcome_docmed_info {
+  .welcome_clicnic_area .welcome_hcen_info {
     padding-left: 0;
     margin-top: 80px;
   }
@@ -1416,14 +1416,14 @@ h3 {
 
 @media (min-width: 768px) and (max-width: 991px) {
   /* line 42, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-  .welcome_clicnic_area .welcome_docmed_info {
+  .welcome_clicnic_area .welcome_hcen_info {
     padding-left: 0;
     margin-top: 100px;
   }
 }
 
 /* line 52, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-.welcome_clicnic_area .welcome_docmed_info h3 {
+.welcome_clicnic_area .welcome_hcen_info h3 {
   font-weight: 300;
   font-size: 50px;
   margin-bottom: 40px;
@@ -1431,7 +1431,7 @@ h3 {
 }
 
 /* line 57, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-.welcome_clicnic_area .welcome_docmed_info h3 span {
+.welcome_clicnic_area .welcome_hcen_info h3 span {
   display: block;
   color: #1a1a1a;
   font-weight: 700;
@@ -1439,7 +1439,7 @@ h3 {
 
 @media (max-width: 767px) {
   /* line 52, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-  .welcome_clicnic_area .welcome_docmed_info h3 {
+  .welcome_clicnic_area .welcome_hcen_info h3 {
     font-size: 30px;
     line-height: 1.2;
   }
@@ -1447,26 +1447,26 @@ h3 {
 
 @media (max-width: 767px) {
   /* line 66, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-  .welcome_clicnic_area .welcome_docmed_info h3 br {
+  .welcome_clicnic_area .welcome_hcen_info h3 br {
     display: none;
   }
 }
 
 /* line 72, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-.welcome_clicnic_area .welcome_docmed_info p {
+.welcome_clicnic_area .welcome_hcen_info p {
   font-size: 16px;
   color: #6b6a6a;
   line-height: 28px;
 }
 
 /* line 77, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-.welcome_clicnic_area .welcome_docmed_info ul {
+.welcome_clicnic_area .welcome_hcen_info ul {
   margin-bottom: 46px;
   margin-top: 20px;
 }
 
 /* line 80, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-.welcome_clicnic_area .welcome_docmed_info ul li {
+.welcome_clicnic_area .welcome_hcen_info ul li {
   color: #1a1a1a;
   font-size: 16px;
   line-height: 44px;
@@ -1476,13 +1476,13 @@ h3 {
 
 @media (max-width: 767px) {
   /* line 80, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-  .welcome_clicnic_area .welcome_docmed_info ul li {
+  .welcome_clicnic_area .welcome_hcen_info ul li {
     line-height: 30px;
   }
 }
 
 /* line 89, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-.welcome_clicnic_area .welcome_docmed_info ul li i {
+.welcome_clicnic_area .welcome_hcen_info ul li i {
   margin-right: 15px;
   color: #84dfff;
   font-size: 20px;
@@ -1497,7 +1497,7 @@ h3 {
 
 @media (max-width: 767px) {
   /* line 89, ../../Arafath/CL/january 2020/241. Medical/HTML/scss/_about.scss */
-  .welcome_clicnic_area .welcome_docmed_info ul li i {
+  .welcome_clicnic_area .welcome_hcen_info ul li i {
     top: 0px;
     -webkit-transform: translateY(0%);
     -moz-transform: translateY(0%);
