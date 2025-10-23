@@ -281,14 +281,28 @@ const DetalleDocumento = () => {
   };
 
   const handleDownload = (archivo) => {
-    // Simular descarga de archivo
-    const link = document.createElement('a');
-    link.href = `#`; // En una implementación real, sería la URL del archivo
-    link.download = archivo.nombre;
-    link.click();
+    // Verificar si es una URL de ejemplo
+    if (archivo.url && archivo.url.includes('ejemplo.com')) {
+      alert(`📄 Documento: ${archivo.nombre}\n\n⚠️ Este es un documento de demostración.\nEn una implementación real, el archivo se descargaría desde el servidor del hospital.`);
+      return;
+    }
     
-    // Mostrar mensaje de descarga simulada
-    alert(`Descargando: ${archivo.nombre}\n\nEn una implementación real, este archivo se descargaría desde el servidor.`);
+    // Si es una URL real, intentar descargar
+    if (archivo.url && archivo.url.startsWith('http')) {
+      const link = document.createElement('a');
+      link.href = archivo.url;
+      link.download = archivo.nombre;
+      link.target = '_blank';
+      link.click();
+    } else {
+      // Simular descarga si no hay URL
+      const link = document.createElement('a');
+      link.href = `#`;
+      link.download = archivo.nombre;
+      link.click();
+      
+      alert(`📄 Descargando: ${archivo.nombre}\n\n⚠️ En una implementación real, este archivo se descargaría desde el servidor.`);
+    }
   };
 
   if (loading) {
@@ -656,7 +670,7 @@ const DetalleDocumento = () => {
                             }}
                           >
                             <i className="flaticon-download" style={{marginRight: '5px'}}></i>
-                            Descargar PDF
+                            Ver Documento
                           </button>
                         </div>
                       </div>

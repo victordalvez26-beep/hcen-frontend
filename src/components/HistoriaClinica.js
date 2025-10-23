@@ -23,10 +23,11 @@ const HistoriaClinica = () => {
     if (user && user.documento && user.documento.trim() !== '') {
       console.log('📋 Usuario tiene documento:', user.documento);
       loadDocumentos(user.documento);
-    } else if (user && user.uid === 'uy-ci-53472408') {
-      // TEMPORAL: Usar documento hardcodeado para testing
-      console.log('🔧 TEMPORAL: Usando documento hardcodeado 53472408');
-      loadDocumentos('53472408');
+    } else if (user && user.uid && user.uid.startsWith('uy-ci-')) {
+      // TEMPORAL: Extraer documento del UID (uy-ci-53472408 -> 53472408)
+      const documentoExtraido = user.uid.replace('uy-ci-', '');
+      console.log('🔧 TEMPORAL: Extrayendo documento del UID:', documentoExtraido);
+      loadDocumentos(documentoExtraido);
     } else {
       console.log('❌ Usuario no tiene documento o no está logueado');
       console.log('User:', user);
