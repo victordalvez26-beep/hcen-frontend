@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import './Login.css';
+import PerfilUsuario from './PerfilUsuario';
+import GestionClinicas from './GestionClinicas';
 
 const Login = () => {
   const [user, setUser] = useState(null);
@@ -46,7 +47,27 @@ const Login = () => {
       
       if (data.authenticated) {
         console.log('Sesión activa para:', data.nombre);
-        setUser(data);
+        
+        // Obtener información completa del usuario incluyendo el rol
+        try {
+          const profileResponse = await fetch('http://localhost:8080/api/users/profile', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            setUser({...data, ...profileData});
+          } else {
+            setUser(data);
+          }
+        } catch (profileError) {
+          console.error('Error obteniendo perfil del usuario:', profileError);
+          setUser(data);
+        }
       } else {
         console.log('No hay sesión activa');
         setUser(null);
@@ -79,74 +100,261 @@ const Login = () => {
 
   if (loading) {
     return (
-      <div className="login-container">
-        <div className="login-content">
-          <div className="loading-spinner"></div>
-          <p>Cargando...</p>
+      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center', backgroundColor: 'var(--background-color)'}}>
+        <div className="container">
+          <div className="row">
+            <div className="col-xl-12">
+              <div className="slider_text text-center">
+                <h3>Cargando...</h3>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="login-container">
-      <div className="login-content">
-        {/* Logo Section */}
-        <div className="logo-section">
-          <div className="logo">
-            <div className="logo-icon">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                <path 
-                  d="M20 4L24 12H32L26 18L28 26L20 22L12 26L14 18L8 12H16L20 4Z" 
-                  fill="var(--indigo-dye)"
-                />
-              </svg>
+    <>
+      <header>
+        <div className="header-area">
+          <div id="sticky-header" className="main-header-area">
+            <div className="container">
+              <div className="row align-items-center">
+                <div className="col-xl-3 col-lg-3">
+                  <div className="logo-img">
+                    <a href="/">
+                      <img src="/assets/img/logo.png" alt="HCEN" style={{maxHeight: '60px'}} />
+                    </a>
+                  </div>
+                </div>
+                <div className="col-xl-9 col-lg-9">
+                  <div className="menu_wrap d-none d-lg-block">
+                    <div className="menu_wrap_inner d-flex align-items-center justify-content-end">
+                      <div className="main-menu">
+                        <nav>
+                          <ul id="navigation">
+                            <li><a href="/">Inicio</a></li>
+                            <li><a href="/about">Acerca de</a></li>
+                            <li><a href="/contact">Contacto</a></li>
+                          </ul>
+                        </nav>
+                      </div>
+                      {user && (
+                        <div className="book_room">
+                          <div className="book_btn">
+                            <a onClick={handleLogout} style={{cursor: 'pointer'}}>Cerrar Sesión</a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <div className="mobile_menu d-block d-lg-none"></div>
+                </div>
+              </div>
             </div>
-            <span className="logo-text">HCEN</span>
           </div>
         </div>
+      </header>
 
-        <div className="login-card">
-          {user ? (
-            <>
-              <h1 className="login-title">Bienvenido a HCEN</h1>
-              <div className="user-info">
-                <p><strong>UID:</strong> {user.uid || 'N/A'}</p>
-                <p><strong>Nombre Completo:</strong> {user.nombre || 'N/A'}</p>
-                <p><strong>Email:</strong> {user.email || 'N/A'}</p>
-                <p><strong>Documento:</strong> {user.documento || 'No disponible'}</p>
+      {user ? (
+        <div className="slider_area" style={{minHeight: '100vh'}}>
+          <div className="single_slider d-flex align-items-center slider_bg_1 overlay" style={{minHeight: '100vh'}}>
+            <div className="container">
+              <div className="row">
+                <div className="col-xl-12">
+                  <div className="slider_text text-center">
+                    <span>Bienvenido a HCEN</span>
+                    <h3><span>{user.nombre || 'Usuario'}</span></h3>
+                    
+                    <div className="row justify-content-center mt-5">
+                      <div className="col-xl-8">
+                        <div className="welcome_hcen_info" style={{backgroundColor: 'rgba(255,255,255,0.95)', padding: '40px', borderRadius: '10px'}}>
+                          <h4 style={{color: '#1f2b7b', marginBottom: '30px'}}>Información del Usuario</h4>
+                          <ul style={{listStyle: 'none', padding: 0}}>
+                            <li style={{marginBottom: '15px', color: '#333'}}> 
+                              <i className="flaticon-verified" style={{color: '#1f2b7b'}}></i> 
+                              <strong>UID:</strong> {user.uid || 'N/A'}
+                            </li>
+                            <li style={{marginBottom: '15px', color: '#333'}}> 
+                              <i className="flaticon-verified" style={{color: '#1f2b7b'}}></i> 
+                              <strong>Nombre Completo:</strong> {user.nombre || 'N/A'}
+                            </li>
+                            <li style={{marginBottom: '15px', color: '#333'}}> 
+                              <i className="flaticon-verified" style={{color: '#1f2b7b'}}></i> 
+                              <strong>Email:</strong> {user.email || 'N/A'}
+                            </li>
+                            <li style={{marginBottom: '15px', color: '#333'}}> 
+                              <i className="flaticon-verified" style={{color: '#1f2b7b'}}></i> 
+                              <strong>Documento:</strong> {user.documento || 'No disponible'}
+                            </li>
+                            <li style={{marginBottom: '15px', color: '#333'}}> 
+                              <i className="flaticon-verified" style={{color: '#1f2b7b'}}></i> 
+                              <strong>Rol:</strong> {user.rolDescripcion || 'Usuario de la Salud'}
+                            </li>
+                          </ul>
+                          
+                          <details style={{marginTop: '30px', textAlign: 'left'}}>
+                            <summary style={{cursor: 'pointer', color: '#1f2b7b', fontWeight: 'bold'}}>
+                              Ver información detallada
+                            </summary>
+                            <pre style={{backgroundColor: '#f5f5f5', padding: '15px', borderRadius: '5px', marginTop: '15px', maxHeight: '300px', overflow: 'auto', fontSize: '12px'}}>
+                              {JSON.stringify(user, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Contenido según rol del usuario */}
+                    <div className="row justify-content-center mt-4">
+                      <div className="col-xl-12">
+                        {user.rol === 'AD' ? (
+                          // Administrador HCEN - Gestión de Clínicas
+                          <GestionClinicas />
+                        ) : (
+                          // Usuario de la Salud - Perfil de Usuario
+                          <PerfilUsuario 
+                            user={user} 
+                            onUpdate={(data) => {
+                              console.log('Perfil actualizado:', data);
+                              // Aquí podrías actualizar el usuario en el backend
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="user-info-debug">
-                <details>
-                  <summary>Ver información detallada</summary>
-                  <pre>{JSON.stringify(user, null, 2)}</pre>
-                </details>
-              </div>
-              <div className="login-form">
-                <button onClick={handleLogout} className="login-button logout-button">
-                  Cerrar Sesión
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h1 className="login-title">Iniciar Sesión en HCEN</h1>
-              <div className="login-form">
-                <button onClick={handleGubUyLogin} className="login-button gubuy-button">
-                  Iniciar Sesión con gub.uy
-                </button>
-              </div>
-            </>
-          )}
+            </div>
+          </div>
         </div>
+      ) : (
+        <div className="slider_area">
+          <div className="slider_active">
+            <div className="single_slider d-flex align-items-center slider_bg_1 overlay" style={{minHeight: '100vh'}}>
+              <div className="container">
+                <div className="row">
+                  <div className="col-xl-12">
+                    <div className="slider_text text-center">
+                      <span>HCEN</span>
+                      <h3><span>Historia Clínica</span> <br />
+                        Electrónica Nacional</h3>
+                      <p style={{color: '#fff', marginTop: '20px', marginBottom: '40px'}}>
+                        Accede de forma segura a tu información médica
+                      </p>
+                      <a onClick={handleGubUyLogin} className="boxed-btn5" style={{cursor: 'pointer'}}>
+                        Iniciar Sesión con gub.uy
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Footer */}
-        <div className="footer">
-          <div className="footer-separator"></div>
-          <p className="copyright">© 2024 HCEN. Todos los derechos reservados.</p>
+      <div className="emergency_contact" style={{marginTop: '0'}}>
+        <div className="conatiner-fluid p-0">
+          <div className="row no-gutters">
+            <div className="col-xl-4 col-lg-4">
+              <div className="single_emergency d-flex align-items-center justify-content-center emergency_bg_1 overlay_skyblue">
+                <div className="info">
+                  <span>Emergencias:</span>
+                  <h3>0800 1234</h3>
+                </div>
+                <div className="info_icon">
+                  <i className="flaticon-call"></i>
+                </div>
+              </div>
+            </div>
+            <div className="col-xl-4 col-lg-4">
+              <div className="single_emergency d-flex align-items-center justify-content-center emergency_bg_2 overlay_skyblue">
+                <div className="info">
+                  <span>Información:</span>
+                  <h3>info@hcen.gub.uy</h3>
+                </div>
+                <div className="info_icon">
+                  <i className="flaticon-envelope"></i>
+                </div>
+              </div>
+            </div>
+            <div className="col-xl-4 col-lg-4">
+              <div className="single_emergency d-flex align-items-center justify-content-center emergency_bg_1 overlay_skyblue">
+                <div className="info">
+                  <span>Horario de atención:</span>
+                  <h3>24/7</h3>
+                </div>
+                <div className="info_icon">
+                  <i className="flaticon-clock"></i>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      <footer className="footer">
+        <div className="footer_top">
+          <div className="container">
+            <div className="row">
+              <div className="col-xl-4 col-md-6 col-lg-4">
+                <div className="footer_widget">
+                  <div className="footer_logo">
+                    <a href="/">
+                      <img src="/assets/img/logo.png" alt="HCEN" style={{maxWidth: '150px'}} />
+                    </a>
+                  </div>
+                  <p>
+                    HCEN - Historia Clínica Electrónica Nacional
+                  </p>
+                </div>
+              </div>
+              <div className="col-xl-4 col-md-6 col-lg-4">
+                <div className="footer_widget">
+                  <h3 className="footer_title">
+                    Enlaces Útiles
+                  </h3>
+                  <ul>
+                    <li><a href="https://www.gub.uy">Gobierno de Uruguay</a></li>
+                    <li><a href="https://www.msp.gub.uy">Ministerio de Salud Pública</a></li>
+                    <li><a href="https://www.gub.uy/tramites">Trámites</a></li>
+                  </ul>
+                </div>
+              </div>
+              <div className="col-xl-4 col-md-6 col-lg-4">
+                <div className="footer_widget">
+                  <h3 className="footer_title">
+                    Contacto
+                  </h3>
+                  <p>
+                    Montevideo, Uruguay<br />
+                    Email: info@hcen.gub.uy<br />
+                    Tel: 0800 1234
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="copy-right_text">
+          <div className="container">
+            <div className="footer_border"></div>
+            <div className="row">
+              <div className="col-xl-12">
+                <p className="copy_right text-center">
+                  © 2024 HCEN. Todos los derechos reservados.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </>
   );
 };
 
