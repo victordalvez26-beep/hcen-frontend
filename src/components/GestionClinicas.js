@@ -114,8 +114,11 @@ const GestionClinicas = () => {
         });
 
         if (response.ok) {
-          showMessage('Nodo periférico creado exitosamente', 'success');
-          loadNodos();
+          const createdNodo = await response.json();
+          showMessage('Clínica creada. Inicializando tenant...', 'info');
+          
+          // Hacer polling del estado hasta que cambie de PENDIENTE
+          pollEstadoNodo(createdNodo.rut);
         } else {
           const errorText = await response.text();
           showMessage('Error creando nodo: ' + errorText, 'error');
@@ -128,6 +131,53 @@ const GestionClinicas = () => {
       console.error('Error en submit:', error);
       showMessage('Error de conexión', 'error');
     }
+  };
+
+  /**
+   * Hace polling del estado de un nodo hasta que cambie de PENDIENTE a ACTIVO o ERROR_MENSAJERIA.
+   * Esto permite mostrar feedback en tiempo real sobre la inicialización del tenant.
+   */
+  const pollEstadoNodo = async (rut) => {
+    const maxIntentos = 30; // 30 segundos máximo
+    let intentos = 0;
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const nodo = await response.json();
+          console.log(`Polling estado for ${rut}: ${nodo.estado} (intento ${intentos + 1}/${maxIntentos})`);
+          
+          if (nodo.estado === 'ACTIVO') {
+            clearInterval(interval);
+            showMessage('¡Clínica activada exitosamente! El tenant está listo.', 'success');
+            loadNodos();
+          } else if (nodo.estado === 'ERROR_MENSAJERIA') {
+            clearInterval(interval);
+            showMessage('Error al activar clínica. El tenant no pudo inicializarse. Verifique la configuración.', 'error');
+            loadNodos();
+          }
+          // Si sigue en PENDIENTE, continuar polling
+        }
+        
+        intentos++;
+        if (intentos >= maxIntentos) {
+          clearInterval(interval);
+          showMessage('Timeout esperando activación. La clínica se creó pero verifique su estado manualmente.', 'warning');
+          loadNodos();
+        }
+      } catch (error) {
+        console.error('Error en polling:', error);
+        // No detener el polling por un error puntual
+      }
+    }, 1000); // Poll cada segundo
   };
 
   const handleEdit = (nodo) => {
@@ -260,7 +310,12 @@ const GestionClinicas = () => {
 
       <div className="container" style={{paddingTop: '80px', paddingBottom: '60px'}}>
         {message && (
-          <div className={`alert ${messageType === 'success' ? 'alert-success' : 'alert-danger'} alert-dismissible fade show`} role="alert" style={{
+          <div className={`alert ${
+            messageType === 'success' ? 'alert-success' : 
+            messageType === 'info' ? 'alert-info' :
+            messageType === 'warning' ? 'alert-warning' :
+            'alert-danger'
+          } alert-dismissible fade show`} role="alert" style={{
             borderRadius: '8px',
             padding: '15px 20px',
             marginBottom: '20px'
