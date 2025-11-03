@@ -23,6 +23,8 @@ const GestionClinicas = () => {
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
+  const [showActivationModal, setShowActivationModal] = useState(false);
+  const [activationData, setActivationData] = useState(null);
 
   useEffect(() => {
     loadNodos();
@@ -134,6 +136,35 @@ const GestionClinicas = () => {
   };
 
   /**
+   * Muestra el modal con información de activación de la clínica.
+   */
+  const buildActivationMessage = (nodo) => {
+    if (!nodo.activationUrl) {
+      showMessage('¡Clínica activada exitosamente! El tenant está listo.', 'success');
+      return;
+    }
+
+    // Guardar datos y mostrar modal
+    setActivationData({
+      clinicName: nodo.nombre,
+      adminNickname: nodo.adminNickname,
+      activationUrl: nodo.activationUrl,
+      adminEmail: nodo.adminEmail,
+      portalUrl: `${nodo.nodoPerifericoUrlBase}/portal/clinica-${nodo.id}`,
+      tenantId: nodo.id
+    });
+    setShowActivationModal(true);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      showMessage('Copiado al portapapeles', 'info');
+    }).catch(err => {
+      console.error('Error copiando:', err);
+    });
+  };
+
+  /**
    * Hace polling del estado de un nodo hasta que cambie de PENDIENTE a ACTIVO o ERROR_MENSAJERIA.
    * Esto permite mostrar feedback en tiempo real sobre la inicialización del tenant.
    */
@@ -157,7 +188,10 @@ const GestionClinicas = () => {
           
           if (nodo.estado === 'ACTIVO') {
             clearInterval(interval);
-            showMessage('¡Clínica activada exitosamente! El tenant está listo.', 'success');
+            
+            // Mostrar información de activación
+            const activationInfo = buildActivationMessage(nodo);
+            showMessage(activationInfo, 'success');
             loadNodos();
           } else if (nodo.estado === 'ERROR_MENSAJERIA') {
             clearInterval(interval);
@@ -667,6 +701,226 @@ const GestionClinicas = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de Información de Activación */}
+      {showActivationModal && activationData && (
+        <div className="modal fade show" style={{
+          display: 'block',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 1050
+        }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content" style={{
+              borderRadius: '15px',
+              border: 'none',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+            }}>
+              <div className="modal-header" style={{
+                borderBottom: '1px solid #e5e7eb',
+                padding: '25px 30px',
+                backgroundColor: '#f0fdf4',
+                borderTopLeftRadius: '15px',
+                borderTopRightRadius: '15px'
+              }}>
+                <h5 className="modal-title" style={{
+                  color: '#047857',
+                  fontWeight: '700',
+                  fontSize: '24px'
+                }}>
+                  <i className="fa fa-check-circle" style={{marginRight: '12px', color: '#10b981'}}></i>
+                  ¡Clínica Creada Exitosamente!
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowActivationModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body" style={{padding: '30px'}}>
+                <div className="alert alert-info" style={{
+                  backgroundColor: '#e0f2fe',
+                  border: '1px solid #0ea5e9',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  marginBottom: '25px'
+                }}>
+                  <i className="fa fa-info-circle" style={{marginRight: '8px'}}></i>
+                  <strong>Email de Activación Enviado</strong> a: {activationData.adminEmail || 'administrador de la clínica'}
+                </div>
+
+                <div style={{marginBottom: '20px'}}>
+                  <h6 style={{color: '#374151', marginBottom: '15px', fontWeight: '600', fontSize: '16px'}}>
+                    📋 Información para el Administrador de la Clínica
+                  </h6>
+                  
+                  <div style={{
+                    backgroundColor: '#f8fafc',
+                    padding: '20px',
+                    borderRadius: '10px',
+                    border: '1px solid #e5e7eb',
+                    marginBottom: '15px'
+                  }}>
+                    <div style={{marginBottom: '15px'}}>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        👤 Usuario Administrador
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <code style={{
+                          backgroundColor: '#ffffff',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          fontFamily: 'monospace',
+                          fontSize: '14px',
+                          flex: 1
+                        }}>
+                          {activationData.adminNickname}
+                        </code>
+                        <button
+                          onClick={() => copyToClipboard(activationData.adminNickname)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{marginBottom: '15px'}}>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        🔗 URL de Activación (válida por 48 horas)
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={activationData.activationUrl}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            flex: 1
+                          }}
+                        />
+                        <button
+                          onClick={() => copyToClipboard(activationData.activationUrl)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        🏥 URL del Portal (después de activar)
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={activationData.portalUrl}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            flex: 1
+                          }}
+                        />
+                        <button
+                          onClick={() => copyToClipboard(activationData.portalUrl)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="alert alert-warning" style={{
+                    backgroundColor: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    marginBottom: '0'
+                  }}>
+                    <i className="fa fa-exclamation-triangle" style={{marginRight: '8px'}}></i>
+                    <strong>Importante:</strong> Envíe el enlace de activación al administrador de la clínica {activationData.clinicName}.
+                    El enlace es válido por 48 horas.
+                  </div>
+                </div>
+
+                <div style={{
+                  backgroundColor: '#f8fafc',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <h6 style={{color: '#374151', marginBottom: '10px', fontSize: '14px', fontWeight: '600'}}>
+                    📝 Instrucciones para el Administrador
+                  </h6>
+                  <ol style={{marginBottom: '0', paddingLeft: '20px', color: '#6b7280', fontSize: '13px'}}>
+                    <li>Abrir el enlace de activación recibido por email</li>
+                    <li>Crear una contraseña segura (mínimo 8 caracteres)</li>
+                    <li>Iniciar sesión con el usuario: <strong>{activationData.adminNickname}</strong></li>
+                    <li>Acceder al portal de la clínica</li>
+                  </ol>
+                </div>
+              </div>
+              <div className="modal-footer" style={{
+                borderTop: '1px solid #e5e7eb',
+                padding: '20px 30px',
+                backgroundColor: '#f8fafc',
+                borderBottomLeftRadius: '15px',
+                borderBottomRightRadius: '15px'
+              }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowActivationModal(false)}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    backgroundColor: '#10b981',
+                    border: 'none'
+                  }}
+                >
+                  <i className="fa fa-check" style={{marginRight: '5px'}}></i>
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
