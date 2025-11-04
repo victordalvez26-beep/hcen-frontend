@@ -7,22 +7,17 @@ const GestionClinicas = () => {
 
   const [formData, setFormData] = useState({
     nombre: '',
-    RUT: '',
-    departamento: '',
-    localidad: '',
-    direccion: '',
-    contacto: '',
-    url: '',
-    nodoPerifericoUrlBase: '',
-    nodoPerifericoUsuario: '',
-    nodoPerifericoPassword: '',
-    estado: 'ACTIVO'
+    contacto: '', // Email de contacto del administrador
+    // Los demás datos (RUT, dirección, etc.) los ingresa la clínica al activarse
+    estado: 'PENDIENTE_ACTIVACION'
   });
 
   const [editingRUT, setEditingRUT] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
+  const [showActivationModal, setShowActivationModal] = useState(false);
+  const [activationData, setActivationData] = useState(null);
 
   useEffect(() => {
     loadNodos();
@@ -114,8 +109,13 @@ const GestionClinicas = () => {
         });
 
         if (response.ok) {
-          showMessage('Nodo periférico creado exitosamente', 'success');
-          loadNodos();
+          const createdNodo = await response.json();
+          showMessage(
+            `✅ Invitación enviada a ${formData.contacto}. ` +
+            `El administrador recibirá un email para completar el registro de la clínica.`,
+            'success'
+          );
+          loadNodos(); // Recargar la lista para mostrar la clínica con estado PENDIENTE_ACTIVACION
         } else {
           const errorText = await response.text();
           showMessage('Error creando nodo: ' + errorText, 'error');
@@ -128,6 +128,85 @@ const GestionClinicas = () => {
       console.error('Error en submit:', error);
       showMessage('Error de conexión', 'error');
     }
+  };
+
+  /**
+   * Muestra el modal con información de activación de la clínica.
+   */
+  const buildActivationMessage = (nodo) => {
+    if (!nodo.activationUrl) {
+      showMessage('¡Clínica activada exitosamente! El tenant está listo.', 'success');
+      return;
+    }
+
+    // Guardar datos y mostrar modal
+    setActivationData({
+      clinicName: nodo.nombre,
+      adminNickname: nodo.adminNickname,
+      activationUrl: nodo.activationUrl,
+      adminEmail: nodo.adminEmail,
+      portalUrl: `${nodo.nodoPerifericoUrlBase}/portal/clinica/${nodo.id}`,
+      tenantId: nodo.id
+    });
+    setShowActivationModal(true);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      showMessage('Copiado al portapapeles', 'info');
+    }).catch(err => {
+      console.error('Error copiando:', err);
+    });
+  };
+
+  /**
+   * Hace polling del estado de un nodo hasta que cambie de PENDIENTE a ACTIVO o ERROR_MENSAJERIA.
+   * Esto permite mostrar feedback en tiempo real sobre la inicialización del tenant.
+   */
+  const pollEstadoNodo = async (rut) => {
+    const maxIntentos = 30; // 30 segundos máximo
+    let intentos = 0;
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const nodo = await response.json();
+          console.log(`Polling estado for ${rut}: ${nodo.estado} (intento ${intentos + 1}/${maxIntentos})`);
+          
+          if (nodo.estado === 'ACTIVO') {
+            clearInterval(interval);
+            
+            // Mostrar información de activación
+            const activationInfo = buildActivationMessage(nodo);
+            showMessage(activationInfo, 'success');
+            loadNodos();
+          } else if (nodo.estado === 'ERROR_MENSAJERIA') {
+            clearInterval(interval);
+            showMessage('Error al activar clínica. El tenant no pudo inicializarse. Verifique la configuración.', 'error');
+            loadNodos();
+          }
+          // Si sigue en PENDIENTE, continuar polling
+        }
+        
+        intentos++;
+        if (intentos >= maxIntentos) {
+          clearInterval(interval);
+          showMessage('Timeout esperando activación. La clínica se creó pero verifique su estado manualmente.', 'warning');
+          loadNodos();
+        }
+      } catch (error) {
+        console.error('Error en polling:', error);
+        // No detener el polling por un error puntual
+      }
+    }, 1000); // Poll cada segundo
   };
 
   const handleEdit = (nodo) => {
@@ -174,16 +253,8 @@ const GestionClinicas = () => {
   const resetForm = () => {
     setFormData({
       nombre: '',
-      RUT: '',
-      departamento: '',
-      localidad: '',
-      direccion: '',
       contacto: '',
-      url: '',
-      nodoPerifericoUrlBase: '',
-      nodoPerifericoUsuario: '',
-      nodoPerifericoPassword: '',
-      estado: 'ACTIVO'
+      estado: 'PENDIENTE_ACTIVACION'
     });
     setEditingRUT(null);
     setShowForm(false);
@@ -260,7 +331,12 @@ const GestionClinicas = () => {
 
       <div className="container" style={{paddingTop: '80px', paddingBottom: '60px'}}>
         {message && (
-          <div className={`alert ${messageType === 'success' ? 'alert-success' : 'alert-danger'} alert-dismissible fade show`} role="alert" style={{
+          <div className={`alert ${
+            messageType === 'success' ? 'alert-success' : 
+            messageType === 'info' ? 'alert-info' :
+            messageType === 'warning' ? 'alert-warning' :
+            'alert-danger'
+          } alert-dismissible fade show`} role="alert" style={{
             borderRadius: '8px',
             padding: '15px 20px',
             marginBottom: '20px'
@@ -318,11 +394,21 @@ const GestionClinicas = () => {
                 <div className="card-body" style={{padding: '30px'}}>
                   <form onSubmit={handleSubmit}>
                     <h6 style={{color: '#374151', fontWeight: '600', marginBottom: '20px', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px'}}>
-                      Información General
+                      Información Básica
                     </h6>
+                    
+                    <div style={{padding: '20px', backgroundColor: '#eff6ff', borderRadius: '12px', marginBottom: '25px', border: '1px solid #bfdbfe'}}>
+                      <p style={{margin: '0', color: '#1e40af', fontSize: '14px', lineHeight: '1.6'}}>
+                        <i className="fa fa-info-circle" style={{marginRight: '10px', color: '#3b82f6'}}></i>
+                        <strong>Nuevo Flujo de Registro:</strong> Solo necesita ingresar el nombre y email de contacto. El administrador de la clínica recibirá un email con un enlace para completar el registro (RUT, dirección, crear usuario y contraseña).
+                      </p>
+                    </div>
+
                     <div className="row">
-                      <div className="col-md-6 mb-3">
-                        <label htmlFor="nombre" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Nombre *</label>
+                      <div className="col-md-12 mb-3">
+                        <label htmlFor="nombre" className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                          Nombre de la Clínica *
+                        </label>
                         <input
                           type="text"
                           className="form-control"
@@ -331,157 +417,34 @@ const GestionClinicas = () => {
                           value={formData.nombre}
                           onChange={handleInputChange}
                           required
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
+                          placeholder="Ej: Clínica Santa María"
+                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '12px 15px', fontSize: '15px'}}
                         />
-                      </div>
-                      <div className="col-md-6 mb-3">
-                        <label htmlFor="RUT" className="form-label" style={{fontWeight: '600', color: '#374151'}}>RUT *</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          id="RUT"
-                          name="RUT"
-                          value={formData.RUT}
-                          onChange={handleInputChange}
-                          required
-                          disabled={editingRUT !== null}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        />
+                        <small style={{color: '#6b7280', fontSize: '13px'}}>
+                          Nombre oficial de la clínica o centro de salud
+                        </small>
                       </div>
                     </div>
+                    
                     <div className="row">
-                      <div className="col-md-4 mb-3">
-                        <label htmlFor="departamento" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Departamento *</label>
-                        <select
-                          className="form-control"
-                          id="departamento"
-                          name="departamento"
-                          value={formData.departamento}
-                          onChange={handleInputChange}
-                          required
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        >
-                          <option value="">Seleccione...</option>
-                          {departamentos.map(depto => (
-                            <option key={depto} value={depto}>
-                              {formatDepartamentoDisplay(depto)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="col-md-4 mb-3">
-                        <label htmlFor="localidad" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Localidad</label>
+                      <div className="col-md-12 mb-3">
+                        <label htmlFor="contacto" className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                          Email del Administrador *
+                        </label>
                         <input
-                          type="text"
-                          className="form-control"
-                          id="localidad"
-                          name="localidad"
-                          value={formData.localidad}
-                          onChange={handleInputChange}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        />
-                      </div>
-                      <div className="col-md-4 mb-3">
-                        <label htmlFor="estado" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Estado *</label>
-                        <select
-                          className="form-control"
-                          id="estado"
-                          name="estado"
-                          value={formData.estado}
-                          onChange={handleInputChange}
-                          required
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        >
-                          <option value="ACTIVO">Activo</option>
-                          <option value="INACTIVO">Inactivo</option>
-                          <option value="MANTENIMIENTO">Mantenimiento</option>
-                          <option value="ERROR_MENSAJERIA">Error Mensajería</option>
-                          <option value="PENDIENTE">Pendiente</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="row">
-                      <div className="col-md-6 mb-3">
-                        <label htmlFor="direccion" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Dirección</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          id="direccion"
-                          name="direccion"
-                          value={formData.direccion}
-                          onChange={handleInputChange}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        />
-                      </div>
-                      <div className="col-md-6 mb-3">
-                        <label htmlFor="contacto" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Contacto</label>
-                        <input
-                          type="text"
+                          type="email"
                           className="form-control"
                           id="contacto"
                           name="contacto"
                           value={formData.contacto}
                           onChange={handleInputChange}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
+                          required
+                          placeholder="admin@clinica.com"
+                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '12px 15px', fontSize: '15px'}}
                         />
-                      </div>
-                    </div>
-                    <div className="row">
-                      <div className="col-md-12 mb-3">
-                        <label htmlFor="url" className="form-label" style={{fontWeight: '600', color: '#374151'}}>URL</label>
-                        <input
-                          type="url"
-                          className="form-control"
-                          id="url"
-                          name="url"
-                          value={formData.url}
-                          onChange={handleInputChange}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        />
-                      </div>
-                    </div>
-
-                    <h6 style={{color: '#374151', fontWeight: '600', marginTop: '30px', marginBottom: '20px', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px'}}>
-                      Configuración Técnica
-                    </h6>
-                    <div className="row">
-                      <div className="col-md-12 mb-3">
-                        <label htmlFor="nodoPerifericoUrlBase" className="form-label" style={{fontWeight: '600', color: '#374151'}}>URL Base del Nodo</label>
-                        <input
-                          type="url"
-                          className="form-control"
-                          id="nodoPerifericoUrlBase"
-                          name="nodoPerifericoUrlBase"
-                          value={formData.nodoPerifericoUrlBase}
-                          onChange={handleInputChange}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        />
-                      </div>
-                    </div>
-                    <div className="row">
-                      <div className="col-md-6 mb-3">
-                        <label htmlFor="nodoPerifericoUsuario" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Usuario</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          id="nodoPerifericoUsuario"
-                          name="nodoPerifericoUsuario"
-                          value={formData.nodoPerifericoUsuario}
-                          onChange={handleInputChange}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        />
-                      </div>
-                      <div className="col-md-6 mb-3">
-                        <label htmlFor="nodoPerifericoPassword" className="form-label" style={{fontWeight: '600', color: '#374151'}}>Contraseña</label>
-                        <input
-                          type="password"
-                          className="form-control"
-                          id="nodoPerifericoPassword"
-                          name="nodoPerifericoPassword"
-                          value={formData.nodoPerifericoPassword}
-                          onChange={handleInputChange}
-                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '10px 15px'}}
-                        />
+                        <small style={{color: '#6b7280', fontSize: '13px'}}>
+                          El administrador recibirá un email para completar el registro de la clínica
+                        </small>
                       </div>
                     </div>
 
@@ -612,6 +575,226 @@ const GestionClinicas = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de Información de Activación */}
+      {showActivationModal && activationData && (
+        <div className="modal fade show" style={{
+          display: 'block',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 1050
+        }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content" style={{
+              borderRadius: '15px',
+              border: 'none',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+            }}>
+              <div className="modal-header" style={{
+                borderBottom: '1px solid #e5e7eb',
+                padding: '25px 30px',
+                backgroundColor: '#f0fdf4',
+                borderTopLeftRadius: '15px',
+                borderTopRightRadius: '15px'
+              }}>
+                <h5 className="modal-title" style={{
+                  color: '#047857',
+                  fontWeight: '700',
+                  fontSize: '24px'
+                }}>
+                  <i className="fa fa-check-circle" style={{marginRight: '12px', color: '#10b981'}}></i>
+                  ¡Clínica Creada Exitosamente!
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowActivationModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body" style={{padding: '30px'}}>
+                <div className="alert alert-info" style={{
+                  backgroundColor: '#e0f2fe',
+                  border: '1px solid #0ea5e9',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  marginBottom: '25px'
+                }}>
+                  <i className="fa fa-info-circle" style={{marginRight: '8px'}}></i>
+                  <strong>Email de Activación Enviado</strong> a: {activationData.adminEmail || 'administrador de la clínica'}
+                </div>
+
+                <div style={{marginBottom: '20px'}}>
+                  <h6 style={{color: '#374151', marginBottom: '15px', fontWeight: '600', fontSize: '16px'}}>
+                    📋 Información para el Administrador de la Clínica
+                  </h6>
+                  
+                  <div style={{
+                    backgroundColor: '#f8fafc',
+                    padding: '20px',
+                    borderRadius: '10px',
+                    border: '1px solid #e5e7eb',
+                    marginBottom: '15px'
+                  }}>
+                    <div style={{marginBottom: '15px'}}>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        👤 Usuario Administrador
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <code style={{
+                          backgroundColor: '#ffffff',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          fontFamily: 'monospace',
+                          fontSize: '14px',
+                          flex: 1
+                        }}>
+                          {activationData.adminNickname}
+                        </code>
+                        <button
+                          onClick={() => copyToClipboard(activationData.adminNickname)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{marginBottom: '15px'}}>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        🔗 URL de Activación (válida por 48 horas)
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={activationData.activationUrl}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            flex: 1
+                          }}
+                        />
+                        <button
+                          onClick={() => copyToClipboard(activationData.activationUrl)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        🏥 URL del Portal (después de activar)
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={activationData.portalUrl}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            flex: 1
+                          }}
+                        />
+                        <button
+                          onClick={() => copyToClipboard(activationData.portalUrl)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="alert alert-warning" style={{
+                    backgroundColor: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    marginBottom: '0'
+                  }}>
+                    <i className="fa fa-exclamation-triangle" style={{marginRight: '8px'}}></i>
+                    <strong>Importante:</strong> Envíe el enlace de activación al administrador de la clínica {activationData.clinicName}.
+                    El enlace es válido por 48 horas.
+                  </div>
+                </div>
+
+                <div style={{
+                  backgroundColor: '#f8fafc',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <h6 style={{color: '#374151', marginBottom: '10px', fontSize: '14px', fontWeight: '600'}}>
+                    📝 Instrucciones para el Administrador
+                  </h6>
+                  <ol style={{marginBottom: '0', paddingLeft: '20px', color: '#6b7280', fontSize: '13px'}}>
+                    <li>Abrir el enlace de activación recibido por email</li>
+                    <li>Crear una contraseña segura (mínimo 8 caracteres)</li>
+                    <li>Iniciar sesión con el usuario: <strong>{activationData.adminNickname}</strong></li>
+                    <li>Acceder al portal de la clínica</li>
+                  </ol>
+                </div>
+              </div>
+              <div className="modal-footer" style={{
+                borderTop: '1px solid #e5e7eb',
+                padding: '20px 30px',
+                backgroundColor: '#f8fafc',
+                borderBottomLeftRadius: '15px',
+                borderBottomRightRadius: '15px'
+              }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowActivationModal(false)}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    backgroundColor: '#10b981',
+                    border: 'none'
+                  }}
+                >
+                  <i className="fa fa-check" style={{marginRight: '5px'}}></i>
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
