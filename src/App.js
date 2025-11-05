@@ -6,6 +6,8 @@ import DetalleDocumento from './components/DetalleDocumento';
 import CompleteProfile from './components/CompleteProfile';
 import GestionClinicas from './components/GestionClinicas';
 import GestionUsuarios from './components/GestionUsuarios';
+import GestionPrestadores from './components/GestionPrestadores';
+import RegistroPrestador from './components/RegistroPrestador';
 import Header from './components/Header';
 import './App.css';
 import './styles/colors.css';
@@ -132,6 +134,7 @@ function AppContent() {
           <Route path="/complete-profile" element={
             user && !user.profileCompleted ? <CompleteProfile /> : <Navigate to="/" replace />
           } />
+          <Route path="/registro-prestador" element={<RegistroPrestador />} />
           <Route path="/historia-clinica" element={
             <ProtectedRoute>
               <HistoriaClinica />
@@ -150,6 +153,11 @@ function AppContent() {
         <Route path="/gestion-usuarios" element={
           <AdminRoute>
             <GestionUsuarios />
+          </AdminRoute>
+        } />
+        <Route path="/gestion-prestadores" element={
+          <AdminRoute>
+            <GestionPrestadores />
           </AdminRoute>
         } />
         </Routes>

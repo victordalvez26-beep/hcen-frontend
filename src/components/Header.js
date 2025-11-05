@@ -152,6 +152,32 @@ const Header = ({ user, activePage = '' }) => {
                       }} />
                     )}
                   </a>
+                  <a 
+                    href="/gestion-prestadores" 
+                    style={{
+                      color: activePage === 'gestion-prestadores' ? '#ffffff' : '#e5e7eb',
+                      textDecoration: 'none',
+                      fontWeight: activePage === 'gestion-prestadores' ? '600' : '500',
+                      fontSize: '16px',
+                      transition: 'color 0.2s ease',
+                      position: 'relative'
+                    }}
+                    onMouseEnter={(e) => e.target.style.color = '#ffffff'}
+                    onMouseLeave={(e) => e.target.style.color = activePage === 'gestion-prestadores' ? '#ffffff' : '#e5e7eb'}
+                  >
+                    Gestión de Prestadores
+                    {activePage === 'gestion-prestadores' && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '-8px',
+                        left: '0',
+                        right: '0',
+                        height: '2px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '1px'
+                      }} />
+                    )}
+                  </a>
                 </>
               )}
 
