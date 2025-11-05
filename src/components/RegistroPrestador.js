@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import './GestionClinicas.css';
 
 /**
  * Página de registro para Prestadores de Salud.
@@ -56,7 +55,7 @@ function RegistroPrestador() {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/prestadores-salud/completar-registro', {
+      const response = await fetch('http://localhost:8080/api/prestadores-salud/completar-registro', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -106,8 +105,8 @@ function RegistroPrestador() {
           <div className="row">
             <div className="col-xl-12">
               <div className="slider_text text-center">
-                <h3 style={{color: 'var(--error-color)', marginBottom: '20px'}}>Token Inválido</h3>
-                <p style={{color: 'var(--text-secondary)', fontSize: '18px'}}>
+                <h3 style={{color: '#ef4444', marginBottom: '20px'}}>Token Inválido</h3>
+                <p style={{color: '#64748b', fontSize: '18px'}}>
                   El link de registro no es válido o ha expirado.
                 </p>
               </div>
@@ -119,144 +118,271 @@ function RegistroPrestador() {
   }
   
   return (
-    <div className="slider_area" style={{minHeight: '100vh', paddingTop: '100px', paddingBottom: '60px'}}>
-      <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-xl-8 col-lg-10">
-            
-            {/* Header */}
-            <div className="text-center" style={{marginBottom: '40px'}}>
-              <div style={{fontSize: '64px', marginBottom: '20px'}}>🏥</div>
-              <h2 style={{color: 'var(--primary-color)', marginBottom: '10px'}}>
-                Registro de Prestador de Salud
-              </h2>
-              <p style={{color: 'var(--text-secondary)', fontSize: '16px'}}>
-                Complete los datos de su organización para finalizar el registro en HCEN
-              </p>
-            </div>
-            
-            {/* Mensajes */}
-            {mensaje.texto && (
-              <div className={`mensaje ${mensaje.tipo}`} style={{marginBottom: '30px'}}>
-                {mensaje.texto}
+    <>
+      {/* Header con gradiente azul */}
+      <div className="bradcam_area" style={{
+        paddingTop: '120px',
+        paddingBottom: '80px',
+        background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        marginTop: '0px'
+      }}>
+        <div className="container">
+          <div className="row">
+            <div className="col-xl-12">
+              <div className="bradcam_text text-center">
+                <h3 style={{
+                  color: '#ffffff',
+                  fontSize: '48px',
+                  fontWeight: '700',
+                  marginBottom: '15px',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}>
+                  Registro de Prestador de Salud
+                </h3>
+                <p style={{
+                  color: '#e2e8f0',
+                  fontSize: '18px',
+                  marginBottom: '0',
+                  fontWeight: '400'
+                }}>
+                  Complete los datos de su organización para finalizar el registro en HCEN
+                </p>
               </div>
-            )}
-            
-            {/* Formulario */}
-            <div className="form-card">
-              <form onSubmit={handleSubmit}>
-                
-                {/* RUT */}
-                <div className="form-group">
-                  <label htmlFor="rut">RUT *</label>
-                  <input
-                    id="rut"
-                    name="rut"
-                    type="text"
-                    value={formData.rut}
-                    onChange={handleInputChange}
-                    placeholder="211234560012"
-                    maxLength="12"
-                    required
-                  />
-                  <small className="form-hint">
-                    Registro Único Tributario (12 dígitos)
-                  </small>
-                </div>
-                
-                {/* URL del Servidor */}
-                <div className="form-group">
-                  <label htmlFor="url">URL del Servidor de Documentos Clínicos *</label>
-                  <input
-                    id="url"
-                    name="url"
-                    type="url"
-                    value={formData.url}
-                    onChange={handleInputChange}
-                    placeholder="https://api.miprestador.com"
-                    required
-                  />
-                  <small className="form-hint">
-                    URL base de su servidor que provee el servicio de documentos clínicos
-                  </small>
-                </div>
-                
-                {/* Departamento */}
-                <div className="form-group">
-                  <label htmlFor="departamento">Departamento</label>
-                  <select
-                    id="departamento"
-                    name="departamento"
-                    value={formData.departamento}
-                    onChange={handleInputChange}
-                  >
-                    <option value="">-- Seleccione --</option>
-                    {departamentos.map(dept => (
-                      <option key={dept} value={dept}>
-                        {dept.replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                {/* Localidad */}
-                <div className="form-group">
-                  <label htmlFor="localidad">Localidad</label>
-                  <input
-                    id="localidad"
-                    name="localidad"
-                    type="text"
-                    value={formData.localidad}
-                    onChange={handleInputChange}
-                    placeholder="Ej: Montevideo"
-                  />
-                </div>
-                
-                {/* Dirección */}
-                <div className="form-group">
-                  <label htmlFor="direccion">Dirección</label>
-                  <input
-                    id="direccion"
-                    name="direccion"
-                    type="text"
-                    value={formData.direccion}
-                    onChange={handleInputChange}
-                    placeholder="Ej: Av. Italia 2000"
-                  />
-                </div>
-                
-                {/* Teléfono */}
-                <div className="form-group">
-                  <label htmlFor="telefono">Teléfono</label>
-                  <input
-                    id="telefono"
-                    name="telefono"
-                    type="tel"
-                    value={formData.telefono}
-                    onChange={handleInputChange}
-                    placeholder="Ej: 099 123 456"
-                  />
-                </div>
-                
-                {/* Botones */}
-                <div className="form-actions">
-                  <button 
-                    type="submit" 
-                    className="btn-success"
-                    disabled={loading}
-                  >
-                    {loading ? 'Registrando...' : '✅ Completar Registro'}
-                  </button>
-                </div>
-              </form>
             </div>
-            
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Contenido principal */}
+      <div className="slider_area" style={{paddingTop: '60px', paddingBottom: '80px'}}>
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-xl-8 col-lg-10">
+              
+              {/* Mensajes */}
+              {mensaje.texto && (
+                <div style={{
+                  padding: '15px 20px',
+                  borderRadius: '8px',
+                  marginBottom: '30px',
+                  background: mensaje.tipo === 'success' ? '#d1fae5' : '#fee2e2',
+                  color: mensaje.tipo === 'success' ? '#065f46' : '#991b1b',
+                  border: `1px solid ${mensaje.tipo === 'success' ? '#a7f3d0' : '#fecaca'}`
+                }}>
+                  {mensaje.texto}
+                </div>
+              )}
+              
+              {/* Formulario */}
+              <div style={{
+                background: '#ffffff',
+                padding: '40px',
+                borderRadius: '12px',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+              }}>
+                <form onSubmit={handleSubmit}>
+                  
+                  {/* RUT */}
+                  <div style={{marginBottom: '25px'}}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      RUT *
+                    </label>
+                    <input
+                      name="rut"
+                      type="text"
+                      value={formData.rut}
+                      onChange={handleInputChange}
+                      placeholder="211234560012"
+                      maxLength="12"
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '15px'
+                      }}
+                    />
+                    <small style={{color: '#6b7280', fontSize: '13px'}}>
+                      Registro Único Tributario (12 dígitos)
+                    </small>
+                  </div>
+                  
+                  {/* URL del Servidor */}
+                  <div style={{marginBottom: '25px'}}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      URL del Servidor de Documentos Clínicos *
+                    </label>
+                    <input
+                      name="url"
+                      type="url"
+                      value={formData.url}
+                      onChange={handleInputChange}
+                      placeholder="https://api.miprestador.com"
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '15px'
+                      }}
+                    />
+                    <small style={{color: '#6b7280', fontSize: '13px'}}>
+                      URL base de su servidor que provee el servicio de documentos clínicos
+                    </small>
+                  </div>
+                  
+                  {/* Departamento */}
+                  <div style={{marginBottom: '25px'}}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Departamento
+                    </label>
+                    <select
+                      name="departamento"
+                      value={formData.departamento}
+                      onChange={handleInputChange}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '15px'
+                      }}
+                    >
+                      <option value="">-- Seleccione --</option>
+                      {departamentos.map(dept => (
+                        <option key={dept} value={dept}>
+                          {dept.replace('_', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Localidad */}
+                  <div style={{marginBottom: '25px'}}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Localidad
+                    </label>
+                    <input
+                      name="localidad"
+                      type="text"
+                      value={formData.localidad}
+                      onChange={handleInputChange}
+                      placeholder="Ej: Montevideo"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '15px'
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Dirección */}
+                  <div style={{marginBottom: '25px'}}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Dirección
+                    </label>
+                    <input
+                      name="direccion"
+                      type="text"
+                      value={formData.direccion}
+                      onChange={handleInputChange}
+                      placeholder="Ej: Av. Italia 2000"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '15px'
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Teléfono */}
+                  <div style={{marginBottom: '30px'}}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Teléfono
+                    </label>
+                    <input
+                      name="telefono"
+                      type="tel"
+                      value={formData.telefono}
+                      onChange={handleInputChange}
+                      placeholder="Ej: 099 123 456"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '15px'
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Botón */}
+                  <div style={{textAlign: 'center'}}>
+                    <button 
+                      type="submit" 
+                      disabled={loading}
+                      style={{
+                        padding: '15px 50px',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        color: '#ffffff',
+                        background: loading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                      }}
+                    >
+                      {loading ? 'Registrando...' : 'Completar Registro'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
 export default RegistroPrestador;
-
