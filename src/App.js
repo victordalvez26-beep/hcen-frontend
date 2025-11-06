@@ -25,12 +25,20 @@ function AppContent() {
   
   const checkSession = async () => {
     try {
+      // Preparar headers (incluir JWT de localStorage si existe, para apps móviles)
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      const storedToken = localStorage.getItem('hcen_jwt');
+      if (storedToken) {
+        headers['Authorization'] = 'Bearer ' + storedToken;
+      }
+      
       const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: headers
       });
       
       const data = await response.json();
