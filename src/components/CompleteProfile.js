@@ -1,3 +1,4 @@
+import config from '../config';
 import React, { useState } from 'react';
 
 const CompleteProfile = () => {
@@ -63,7 +64,7 @@ const CompleteProfile = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8080/api/users/complete-profile', {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/complete-profile`, {
         method: 'POST',
         credentials: 'include',
         headers: {

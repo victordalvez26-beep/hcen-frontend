@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import config from '../config';
 
 /**
  * Página de registro para Prestadores de Salud.
@@ -55,7 +56,7 @@ function RegistroPrestador() {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8080/api/prestadores-salud/completar-registro', {
+      const response = await fetch(`${config.BACKEND_URL}/api/prestadores-salud/completar-registro`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

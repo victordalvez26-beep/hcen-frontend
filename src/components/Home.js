@@ -1,3 +1,4 @@
+import config from '../config';
 import React, { useEffect, useState } from 'react';
 
 const Home = () => {
@@ -10,7 +11,7 @@ const Home = () => {
 
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -38,7 +39,7 @@ const Home = () => {
     authUrl.searchParams.set('client_id', '890192');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'openid personal_info email');
-    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+    authUrl.searchParams.set('redirect_uri', config.CALLBACK_URL);
     authUrl.searchParams.set('state', Math.random().toString(36).substring(2, 15));
     
     window.location.href = authUrl.toString();
@@ -46,7 +47,7 @@ const Home = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/logout', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/logout`, {
         method: 'GET',
         credentials: 'include'
       });

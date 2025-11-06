@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 
 /**
  * Componente para gestionar Prestadores de Salud.
@@ -22,7 +23,7 @@ function GestionPrestadores() {
   const loadPrestadores = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/prestadores-salud', {
+      const response = await fetch(`${config.BACKEND_URL}/api/prestadores-salud`, {
         credentials: 'include'
       });
       
@@ -49,7 +50,7 @@ function GestionPrestadores() {
     e.preventDefault();
     
     try {
-      const response = await fetch('http://localhost:8080/api/prestadores-salud/invitar', {
+      const response = await fetch(`${config.BACKEND_URL}/api/prestadores-salud/invitar`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

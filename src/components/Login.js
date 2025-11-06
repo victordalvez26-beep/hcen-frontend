@@ -1,3 +1,4 @@
+import config from '../config';
 import React, { useEffect, useState } from 'react';
 import PerfilUsuario from './PerfilUsuario';
 import GestionClinicas from './GestionClinicas';
@@ -35,7 +36,7 @@ const Login = () => {
   
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -50,7 +51,7 @@ const Login = () => {
         
         // Obtener información completa del usuario incluyendo el rol
         try {
-          const profileResponse = await fetch('http://localhost:8080/api/users/profile', {
+          const profileResponse = await fetch(`${config.BACKEND_URL}/api/users/profile`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -87,7 +88,7 @@ const Login = () => {
     const authUrl = new URL('https://auth-testing.iduruguay.gub.uy/oidc/v1/authorize');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', '890192');
-    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+    authUrl.searchParams.set('redirect_uri', `${config.BACKEND_URL}`);
     authUrl.searchParams.set('scope', 'openid personal_info email');
     authUrl.searchParams.set('state', state);
     
@@ -95,7 +96,7 @@ const Login = () => {
   };
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:8080/api/auth/logout';
+    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
   };
 
   if (loading) {

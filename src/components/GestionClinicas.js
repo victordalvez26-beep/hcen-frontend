@@ -1,3 +1,4 @@
+import config from '../config';
 import React, { useState, useEffect } from 'react';
 
 const GestionClinicas = () => {
@@ -27,7 +28,7 @@ const GestionClinicas = () => {
   const loadNodos = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/nodos', {
+      const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -81,7 +82,7 @@ const GestionClinicas = () => {
     
     try {
       if (editingRUT) {
-        const response = await fetch(`http://localhost:8080/api/nodos/${editingRUT}`, {
+        const response = await fetch(`${config.BACKEND_URL}/api/nodos/${editingRUT}`, {
           method: 'PUT',
           credentials: 'include',
           headers: {
@@ -99,7 +100,7 @@ const GestionClinicas = () => {
           return;
         }
       } else {
-        const response = await fetch('http://localhost:8080/api/nodos', {
+        const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
           method: 'POST',
           credentials: 'include',
           headers: {
@@ -169,7 +170,7 @@ const GestionClinicas = () => {
     
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
+        const response = await fetch(`${config.BACKEND_URL}/api/nodos/${rut}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -233,7 +234,7 @@ const GestionClinicas = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
+      const response = await fetch(`${config.BACKEND_URL}/api/nodos/${rut}`, {
         method: 'DELETE',
         credentials: 'include'
       });

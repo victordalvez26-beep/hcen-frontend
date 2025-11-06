@@ -1,3 +1,4 @@
+import config from '../config';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -176,7 +177,7 @@ const DetalleDocumento = () => {
 
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -203,7 +204,7 @@ const DetalleDocumento = () => {
     setLoadingDocumento(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8080/hcen-rndc-service/api/rndc/documentos/${documentoId}`, {
+      const response = await fetch(`${config.BACKEND_URL}/hcen-rndc-service/api/rndc/documentos/${documentoId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -266,7 +267,7 @@ const DetalleDocumento = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/logout', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/logout`, {
         method: 'GET',
         credentials: 'include'
       });

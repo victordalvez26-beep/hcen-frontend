@@ -9,6 +9,7 @@ import GestionUsuarios from './components/GestionUsuarios';
 import GestionPrestadores from './components/GestionPrestadores';
 import RegistroPrestador from './components/RegistroPrestador';
 import Header from './components/Header';
+import config from './config';
 import './App.css';
 import './styles/colors.css';
 import './styles/components.css';
@@ -24,7 +25,7 @@ function AppContent() {
   
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {

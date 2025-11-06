@@ -1,3 +1,4 @@
+import config from '../config';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -36,7 +37,7 @@ const HistoriaClinica = () => {
   
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -70,7 +71,7 @@ const HistoriaClinica = () => {
     setError(null);
     console.log('🔍 Cargando documentos para CI:', ci);
     try {
-      const url = `http://localhost:8080/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`;
+      const url = `${config.BACKEND_URL}/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`;
       console.log('🌐 URL:', url);
       
       const response = await fetch(url, {
@@ -119,7 +120,7 @@ const HistoriaClinica = () => {
   };
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:8080/api/auth/logout';
+    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
   };
 
   const handleFiltroChange = (campo, valor) => {
