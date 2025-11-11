@@ -1,17 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 
 const DetalleDocumento = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [loadingDocumento, setLoadingDocumento] = useState(false);
   const [documento, setDocumento] = useState(null);
-  const [error, setError] = useState(null);
 
   // Datos de respaldo para demo (se eliminará cuando haya datos reales)
-  const documentosClinicos = [
+  const documentosClinicos = useMemo(() => [
     {
       id: 1,
       fecha: '2024-10-15',
@@ -162,19 +159,9 @@ const DetalleDocumento = () => {
         { nombre: 'analisis_orina.pdf', tipo: 'PDF', tamaño: '987 KB' }
       ]
     }
-  ];
+  ], []);
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  useEffect(() => {
-    if (user && id) {
-      loadDocumento(id);
-    }
-  }, [user, id]);
-
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8080/api/auth/session', {
         method: 'GET',
@@ -197,11 +184,9 @@ const DetalleDocumento = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadDocumento = async (documentoId) => {
-    setLoadingDocumento(true);
-    setError(null);
+  const loadDocumento = useCallback(async (documentoId) => {
     try {
       const response = await fetch(`http://localhost:8080/hcen-rndc-service/api/rndc/documentos/${documentoId}`, {
         method: 'GET',
@@ -257,28 +242,20 @@ const DetalleDocumento = () => {
       if (doc) {
         setDocumento(doc);
       } else {
-        setError('No se pudo cargar el documento. Por favor, intente más tarde.');
+        alert('No se pudo cargar el documento. Por favor, intente más tarde.');
       }
-    } finally {
-      setLoadingDocumento(false);
     }
-  };
+  }, [documentosClinicos, user?.uid]);
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/auth/logout', {
-        method: 'GET',
-        credentials: 'include'
-      });
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
-      if (response.ok) {
-        setUser(null);
-        navigate('/');
-      }
-    } catch (error) {
-      console.error('Error en logout:', error);
+  useEffect(() => {
+    if (user && id) {
+      loadDocumento(id);
     }
-  };
+  }, [user, id, loadDocumento]);
 
   const handleDownload = (archivo) => {
     // Verificar si es una URL de ejemplo

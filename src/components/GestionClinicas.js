@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const GestionClinicas = () => {
   const [nodos, setNodos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [departamentos, setDepartamentos] = useState([]);
-
   const [formData, setFormData] = useState({
     nombre: '',
     contacto: '', // Email de contacto del administrador
@@ -19,12 +17,39 @@ const GestionClinicas = () => {
   const [showActivationModal, setShowActivationModal] = useState(false);
   const [activationData, setActivationData] = useState(null);
 
-  useEffect(() => {
-    loadNodos();
-    loadDepartamentos();
+  const showMessage = useCallback((msg, type) => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => {
+      setMessage('');
+      setMessageType('');
+    }, 5000);
   }, []);
 
-  const loadNodos = async () => {
+  const showActivationDetails = useCallback((nodo, defaults = {}) => {
+    if (!nodo) {
+      return;
+    }
+
+    if (!nodo.activationUrl) {
+      showMessage('¡Clínica activada exitosamente! El tenant está listo.', 'success');
+      return;
+    }
+
+    setActivationData({
+      clinicName: nodo.nombre || defaults.nombre || '',
+      adminNickname: nodo.adminNickname || defaults.adminNickname || '',
+      activationUrl: nodo.activationUrl,
+      adminEmail: nodo.adminEmail || defaults.contacto || '',
+      portalUrl: nodo.nodoPerifericoUrlBase && nodo.id
+        ? `${nodo.nodoPerifericoUrlBase}/portal/clinica/${nodo.id}`
+        : '',
+      tenantId: nodo.id
+    });
+    setShowActivationModal(true);
+  }, [showMessage]);
+
+  const loadNodos = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('http://localhost:8080/api/nodos', {
@@ -47,26 +72,11 @@ const GestionClinicas = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showMessage]);
 
-  const loadDepartamentos = () => {
-    const deptos = [
-      'ARTIGAS', 'CANELONES', 'CERRO_LARGO', 'COLONIA', 'DURAZNO',
-      'FLORES', 'FLORIDA', 'LAVALLEJA', 'MALDONADO', 'MONTEVIDEO',
-      'PAYSANDU', 'RIO_NEGRO', 'RIVERA', 'ROCHA', 'SALTO',
-      'SAN_JOSE', 'SORIANO', 'TACUAREMBO', 'TREINTA_Y_TRES'
-    ];
-    setDepartamentos(deptos);
-  };
-
-  const showMessage = (msg, type) => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => {
-      setMessage('');
-      setMessageType('');
-    }, 5000);
-  };
+  useEffect(() => {
+    loadNodos();
+  }, [loadNodos]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -110,6 +120,7 @@ const GestionClinicas = () => {
 
         if (response.ok) {
           const createdNodo = await response.json();
+          showActivationDetails(createdNodo, formData);
           showMessage(
             `✅ Invitación enviada a ${formData.contacto}. ` +
             `El administrador recibirá un email para completar el registro de la clínica.`,
@@ -130,83 +141,12 @@ const GestionClinicas = () => {
     }
   };
 
-  /**
-   * Muestra el modal con información de activación de la clínica.
-   */
-  const buildActivationMessage = (nodo) => {
-    if (!nodo.activationUrl) {
-      showMessage('¡Clínica activada exitosamente! El tenant está listo.', 'success');
-      return;
-    }
-
-    // Guardar datos y mostrar modal
-    setActivationData({
-      clinicName: nodo.nombre,
-      adminNickname: nodo.adminNickname,
-      activationUrl: nodo.activationUrl,
-      adminEmail: nodo.adminEmail,
-      portalUrl: `${nodo.nodoPerifericoUrlBase}/portal/clinica/${nodo.id}`,
-      tenantId: nodo.id
-    });
-    setShowActivationModal(true);
-  };
-
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       showMessage('Copiado al portapapeles', 'info');
     }).catch(err => {
       console.error('Error copiando:', err);
     });
-  };
-
-  /**
-   * Hace polling del estado de un nodo hasta que cambie de PENDIENTE a ACTIVO o ERROR_MENSAJERIA.
-   * Esto permite mostrar feedback en tiempo real sobre la inicialización del tenant.
-   */
-  const pollEstadoNodo = async (rut) => {
-    const maxIntentos = 30; // 30 segundos máximo
-    let intentos = 0;
-    
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const nodo = await response.json();
-          console.log(`Polling estado for ${rut}: ${nodo.estado} (intento ${intentos + 1}/${maxIntentos})`);
-          
-          if (nodo.estado === 'ACTIVO') {
-            clearInterval(interval);
-            
-            // Mostrar información de activación
-            const activationInfo = buildActivationMessage(nodo);
-            showMessage(activationInfo, 'success');
-            loadNodos();
-          } else if (nodo.estado === 'ERROR_MENSAJERIA') {
-            clearInterval(interval);
-            showMessage('Error al activar clínica. El tenant no pudo inicializarse. Verifique la configuración.', 'error');
-            loadNodos();
-          }
-          // Si sigue en PENDIENTE, continuar polling
-        }
-        
-        intentos++;
-        if (intentos >= maxIntentos) {
-          clearInterval(interval);
-          showMessage('Timeout esperando activación. La clínica se creó pero verifique su estado manualmente.', 'warning');
-          loadNodos();
-        }
-      } catch (error) {
-        console.error('Error en polling:', error);
-        // No detener el polling por un error puntual
-      }
-    }, 1000); // Poll cada segundo
   };
 
   const handleEdit = (nodo) => {
