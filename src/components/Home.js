@@ -1,14 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 const Home = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8080/api/auth/session', {
         method: 'GET',
@@ -31,7 +27,11 @@ const Home = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
   const handleGubUyLogin = () => {
     const authUrl = new URL('https://auth-testing.iduruguay.gub.uy/oidc/v1/authorize');
@@ -42,22 +42,6 @@ const Home = () => {
     authUrl.searchParams.set('state', Math.random().toString(36).substring(2, 15));
     
     window.location.href = authUrl.toString();
-  };
-
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/auth/logout', {
-        method: 'GET',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        setUser(null);
-        window.location.href = '/';
-      }
-    } catch (error) {
-      console.error('Error en logout:', error);
-    }
   };
 
   if (loading) {
@@ -162,33 +146,37 @@ const Home = () => {
                         Ver Mi Historia Clínica
                       </a>
                     ) : (
-                      <a onClick={handleGubUyLogin} style={{
-                        cursor: 'pointer',
-                        padding: '18px 40px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        borderRadius: '50px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        boxShadow: '0 8px 25px rgba(0,0,0,0.2)',
-                        transition: 'all 0.3s ease',
-                        backgroundColor: '#ffffff',
-                        color: '#1f2b7b',
-                        textDecoration: 'none',
-                        display: 'inline-block',
-                        border: '2px solid #1f2b7b'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = '#f8fafc';
-                        e.target.style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = '#ffffff';
-                        e.target.style.transform = 'translateY(0)';
-                      }}>
+                      <button
+                        type="button"
+                        onClick={handleGubUyLogin}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '18px 40px',
+                          fontSize: '16px',
+                          fontWeight: '600',
+                          borderRadius: '50px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          boxShadow: '0 8px 25px rgba(0,0,0,0.2)',
+                          transition: 'all 0.3s ease',
+                          backgroundColor: '#ffffff',
+                          color: '#1f2b7b',
+                          textDecoration: 'none',
+                          display: 'inline-block',
+                          border: '2px solid #1f2b7b'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#f8fafc';
+                          e.target.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.transform = 'translateY(0)';
+                        }}
+                      >
                         <i className="flaticon-user" style={{marginRight: '10px'}}></i>
                         Iniciar Sesión con gub.uy
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>

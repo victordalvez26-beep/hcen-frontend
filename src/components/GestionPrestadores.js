@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 /**
  * Componente para gestionar Prestadores de Salud.
@@ -15,11 +15,12 @@ function GestionPrestadores() {
     contacto: ''
   });
 
-  useEffect(() => {
-    loadPrestadores();
+  const mostrarMensaje = useCallback((texto, tipo) => {
+    setMensaje({ texto, tipo });
+    setTimeout(() => setMensaje({ tipo: '', texto: '' }), 5000);
   }, []);
 
-  const loadPrestadores = async () => {
+  const loadPrestadores = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('http://localhost:8080/api/prestadores-salud', {
@@ -38,12 +39,11 @@ function GestionPrestadores() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [mostrarMensaje]);
 
-  const mostrarMensaje = (texto, tipo) => {
-    setMensaje({ texto, tipo });
-    setTimeout(() => setMensaje({ tipo: '', texto: '' }), 5000);
-  };
+  useEffect(() => {
+    loadPrestadores();
+  }, [loadPrestadores]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

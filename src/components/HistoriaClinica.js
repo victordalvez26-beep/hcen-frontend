@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const HistoriaClinica = () => {
@@ -14,27 +14,7 @@ const HistoriaClinica = () => {
     profesional: 'todos'
   });
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  useEffect(() => {
-    console.log('🔄 useEffect ejecutado. User:', user);
-    if (user && user.documento && user.documento.trim() !== '') {
-      console.log('📋 Usuario tiene documento:', user.documento);
-      loadDocumentos(user.documento);
-    } else if (user && user.uid && user.uid.startsWith('uy-ci-')) {
-      // TEMPORAL: Extraer documento del UID (uy-ci-53472408 -> 53472408)
-      const documentoExtraido = user.uid.replace('uy-ci-', '');
-      console.log('🔧 TEMPORAL: Extrayendo documento del UID:', documentoExtraido);
-      loadDocumentos(documentoExtraido);
-    } else {
-      console.log('❌ Usuario no tiene documento o no está logueado');
-      console.log('User:', user);
-    }
-  }, [user]);
-  
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8080/api/auth/session', {
         method: 'GET',
@@ -63,9 +43,9 @@ const HistoriaClinica = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadDocumentos = async (ci) => {
+  const loadDocumentos = useCallback(async (ci) => {
     setLoadingDocumentos(true);
     setError(null);
     console.log('🔍 Cargando documentos para CI:', ci);
@@ -116,11 +96,27 @@ const HistoriaClinica = () => {
     } finally {
       setLoadingDocumentos(false);
     }
-  };
+  }, [user?.uid]);
 
-  const handleLogout = () => {
-    window.location.href = 'http://localhost:8080/api/auth/logout';
-  };
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+
+  useEffect(() => {
+    console.log('🔄 useEffect ejecutado. User:', user);
+    if (user && user.documento && user.documento.trim() !== '') {
+      console.log('📋 Usuario tiene documento:', user.documento);
+      loadDocumentos(user.documento);
+    } else if (user && user.uid && user.uid.startsWith('uy-ci-')) {
+      // TEMPORAL: Extraer documento del UID (uy-ci-53472408 -> 53472408)
+      const documentoExtraido = user.uid.replace('uy-ci-', '');
+      console.log('🔧 TEMPORAL: Extrayendo documento del UID:', documentoExtraido);
+      loadDocumentos(documentoExtraido);
+    } else if (user) {
+      console.log('❌ Usuario no tiene documento o no está logueado');
+      console.log('User:', user);
+    }
+  }, [user, loadDocumentos]);
 
   const handleFiltroChange = (campo, valor) => {
     setFiltros(prev => ({
@@ -580,13 +576,12 @@ const HistoriaClinica = () => {
                               <i className="flaticon-calendar" style={{marginRight: '6px', color: '#3b82f6'}}></i>
                               {documento.fecha}
                             </div>
-                            <a 
-                              href="#" 
-                              className="boxed-btn3" 
+                            <button
+                              type="button"
+                              className="boxed-btn3"
                               style={{
                                 padding: '8px 20px',
                                 fontSize: '13px',
-                                textDecoration: 'none',
                                 backgroundColor: '#3b82f6',
                                 color: '#ffffff',
                                 borderRadius: '6px',
@@ -603,14 +598,13 @@ const HistoriaClinica = () => {
                                 e.target.style.backgroundColor = '#3b82f6';
                                 e.target.style.transform = 'translateY(0)';
                               }}
-                              onClick={(e) => {
-                                e.preventDefault();
+                              onClick={() => {
                                 navigate(`/documento/${documento.id}`);
                               }}
                             >
                               <i className="flaticon-eye" style={{marginRight: '4px'}}></i>
                               Ver Detalle
-                            </a>
+                            </button>
                           </div>
                         </div>
                       </div>

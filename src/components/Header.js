@@ -241,7 +241,8 @@ const Header = ({ user, activePage = '' }) => {
                   Cerrar Sesión
                 </a>
               ) : (
-                <a 
+                <button
+                  type="button"
                   onClick={() => {
                     const authUrl = new URL('https://auth-testing.iduruguay.gub.uy/oidc/v1/authorize');
                     authUrl.searchParams.set('client_id', '890192');
@@ -275,7 +276,7 @@ const Header = ({ user, activePage = '' }) => {
                   }}
                 >
                   Iniciar Sesión
-                </a>
+                </button>
               )}
             </div>
           </nav>
