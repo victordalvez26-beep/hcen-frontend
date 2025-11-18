@@ -7,9 +7,9 @@ const GestionClinicas = () => {
 
   const [formData, setFormData] = useState({
     nombre: '',
-    contacto: '', // Email de contacto del administrador
+    contacto: '' // Email de contacto del administrador
     // Los demás datos (RUT, dirección, etc.) los ingresa la clínica al activarse
-    estado: 'PENDIENTE_ACTIVACION'
+    // El estado se establece automáticamente en el backend como PENDIENTE
   });
 
   const [editingRUT, setEditingRUT] = useState(null);
@@ -115,7 +115,7 @@ const GestionClinicas = () => {
             `El administrador recibirá un email para completar el registro de la clínica.`,
             'success'
           );
-          loadNodos(); // Recargar la lista para mostrar la clínica con estado PENDIENTE_ACTIVACION
+          loadNodos(); // Recargar la lista para mostrar la clínica con estado PENDIENTE
         } else {
           const errorText = await response.text();
           showMessage('Error creando nodo: ' + errorText, 'error');
@@ -220,8 +220,8 @@ const GestionClinicas = () => {
       url: nodo.url || '',
       nodoPerifericoUrlBase: nodo.nodoPerifericoUrlBase || '',
       nodoPerifericoUsuario: nodo.nodoPerifericoUsuario || '',
-      nodoPerifericoPassword: nodo.nodoPerifericoPassword || '',
-      estado: nodo.estado || 'ACTIVO'
+      nodoPerifericoPassword: nodo.nodoPerifericoPassword || ''
+      // No enviar estado al editar, el backend lo maneja
     });
     setEditingRUT(nodo.rut);
     setShowForm(true);
@@ -253,8 +253,8 @@ const GestionClinicas = () => {
   const resetForm = () => {
     setFormData({
       nombre: '',
-      contacto: '',
-      estado: 'PENDIENTE_ACTIVACION'
+      contacto: ''
+      // El estado se establece automáticamente en el backend
     });
     setEditingRUT(null);
     setShowForm(false);
@@ -272,6 +272,7 @@ const GestionClinicas = () => {
       case 'MANTENIMIENTO': return '#f59e0b';
       case 'ERROR_MENSAJERIA': return '#ef4444';
       case 'PENDIENTE': return '#3b82f6';
+      case 'PENDIENTE_ACTIVACION': return '#3b82f6'; // Compatibilidad con datos antiguos
       default: return '#6b7280';
     }
   };

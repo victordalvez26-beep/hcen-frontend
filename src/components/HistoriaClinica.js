@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import config from '../config';
 
 const HistoriaClinica = () => {
   const navigate = useNavigate();
@@ -20,23 +21,19 @@ const HistoriaClinica = () => {
 
   useEffect(() => {
     console.log('🔄 useEffect ejecutado. User:', user);
-    if (user && user.documento && user.documento.trim() !== '') {
-      console.log('📋 Usuario tiene documento:', user.documento);
-      loadDocumentos(user.documento);
-    } else if (user && user.uid && user.uid.startsWith('uy-ci-')) {
-      // TEMPORAL: Extraer documento del UID (uy-ci-53472408 -> 53472408)
-      const documentoExtraido = user.uid.replace('uy-ci-', '');
-      console.log('🔧 TEMPORAL: Extrayendo documento del UID:', documentoExtraido);
-      loadDocumentos(documentoExtraido);
+    if (user && user.uid) {
+      // Usar el User ID (uid) para buscar documentos
+      console.log('📋 Usuario tiene UID:', user.uid);
+      loadDocumentosPorUsuario(user.uid);
     } else {
-      console.log('❌ Usuario no tiene documento o no está logueado');
+      console.log('❌ Usuario no tiene UID o no está logueado');
       console.log('User:', user);
     }
   }, [user]);
   
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -65,20 +62,19 @@ const HistoriaClinica = () => {
     }
   };
 
-  const loadDocumentos = async (ci) => {
+  const loadDocumentosPorUsuario = async (uid) => {
     setLoadingDocumentos(true);
     setError(null);
-    console.log('🔍 Cargando documentos para CI:', ci);
+    console.log('🔍 Cargando documentos para usuario UID:', uid);
     try {
-      const url = `http://localhost:8080/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`;
+      const url = `${config.BACKEND_URL}/api/metadatos-documento/usuario/${uid}`;
       console.log('🌐 URL:', url);
       
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Profesional-Id': user?.uid || ''
+          'Content-Type': 'application/json'
         }
       });
 
@@ -103,7 +99,8 @@ const HistoriaClinica = () => {
         descripcion: doc.descripcion || 'Sin descripción disponible',
         formatoDocumento: doc.formatoDocumento,
         uriDocumento: doc.uriDocumento,
-        accesoPermitido: doc.accesoPermitido !== false
+        accesoPermitido: doc.accesoPermitido !== false,
+        codDocum: doc.codDocum // Agregar CI del paciente
       }));
 
       console.log('💾 Documentos mapeados guardados en estado:', documentosMapeados);
@@ -119,7 +116,7 @@ const HistoriaClinica = () => {
   };
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:8080/api/auth/logout';
+    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
   };
 
   const handleFiltroChange = (campo, valor) => {
@@ -580,37 +577,89 @@ const HistoriaClinica = () => {
                               <i className="flaticon-calendar" style={{marginRight: '6px', color: '#3b82f6'}}></i>
                               {documento.fecha}
                             </div>
-                            <a 
-                              href="#" 
-                              className="boxed-btn3" 
-                              style={{
-                                padding: '8px 20px',
-                                fontSize: '13px',
-                                textDecoration: 'none',
-                                backgroundColor: '#3b82f6',
-                                color: '#ffffff',
-                                borderRadius: '6px',
-                                fontWeight: '600',
-                                transition: 'all 0.3s ease',
-                                border: 'none',
-                                cursor: 'pointer'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = '#1d4ed8';
-                                e.target.style.transform = 'translateY(-2px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = '#3b82f6';
-                                e.target.style.transform = 'translateY(0)';
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                navigate(`/documento/${documento.id}`);
-                              }}
-                            >
-                              <i className="flaticon-eye" style={{marginRight: '4px'}}></i>
-                              Ver Detalle
-                            </a>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                              <a 
+                                href="#" 
+                                className="boxed-btn3" 
+                                style={{
+                                  padding: '8px 20px',
+                                  fontSize: '13px',
+                                  textDecoration: 'none',
+                                  backgroundColor: '#3b82f6',
+                                  color: '#ffffff',
+                                  borderRadius: '6px',
+                                  fontWeight: '600',
+                                  transition: 'all 0.3s ease',
+                                  border: 'none',
+                                  cursor: 'pointer'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.backgroundColor = '#1d4ed8';
+                                  e.target.style.transform = 'translateY(-2px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.backgroundColor = '#3b82f6';
+                                  e.target.style.transform = 'translateY(0)';
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  navigate(`/documento/${documento.id}`);
+                                }}
+                              >
+                                <i className="flaticon-eye" style={{marginRight: '4px'}}></i>
+                                Ver Detalle
+                              </a>
+                              {documento.id && documento.uriDocumento && documento.uriDocumento.includes('localhost:8081') ? (
+                                <a
+                                  href={`${config.BACKEND_URL}/api/metadatos-documento/${documento.id}/descargar`}
+                                  download={`${documento.categoria || 'documento'}-${documento.id}.pdf`}
+                                  className="boxed-btn3" 
+                                  style={{
+                                    padding: '8px 20px',
+                                    fontSize: '13px',
+                                    textDecoration: 'none',
+                                    backgroundColor: '#10b981',
+                                    color: '#ffffff',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s ease',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'inline-block'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = '#059669';
+                                    e.target.style.transform = 'translateY(-2px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = '#10b981';
+                                    e.target.style.transform = 'translateY(0)';
+                                  }}
+                                >
+                                  <i className="flaticon-download" style={{marginRight: '4px'}}></i>
+                                  Descargar PDF
+                                </a>
+                              ) : (
+                                <span
+                                  className="boxed-btn3" 
+                                  style={{
+                                    padding: '8px 20px',
+                                    fontSize: '13px',
+                                    backgroundColor: '#9ca3af',
+                                    color: '#ffffff',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    cursor: 'not-allowed',
+                                    display: 'inline-block',
+                                    opacity: 0.6
+                                  }}
+                                  title="Documento no disponible para descarga"
+                                >
+                                  <i className="flaticon-download" style={{marginRight: '4px'}}></i>
+                                  No disponible
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
