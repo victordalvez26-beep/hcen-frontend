@@ -22,11 +22,11 @@ const HistoriaClinica = () => {
   useEffect(() => {
     console.log('🔄 useEffect ejecutado. User:', user);
     if (user && user.uid) {
-      // Usar el User ID (uid) para buscar documentos
-      console.log('📋 Usuario tiene UID:', user.uid);
-      loadDocumentosPorUsuario(user.uid);
+      // El endpoint ahora obtiene el UID del JWT, solo necesitamos que el usuario esté autenticado
+      console.log('📋 Usuario autenticado, cargando documentos');
+      loadDocumentosPorUsuario();
     } else {
-      console.log('❌ Usuario no tiene UID o no está logueado');
+      console.log('❌ Usuario no autenticado');
       console.log('User:', user);
     }
   }, [user]);
@@ -62,12 +62,13 @@ const HistoriaClinica = () => {
     }
   };
 
-  const loadDocumentosPorUsuario = async (uid) => {
+  const loadDocumentosPorUsuario = async () => {
     setLoadingDocumentos(true);
     setError(null);
-    console.log('🔍 Cargando documentos para usuario UID:', uid);
+    console.log('🔍 Cargando documentos para usuario autenticado');
     try {
-      const url = `${config.BACKEND_URL}/api/metadatos-documento/usuario/${uid}`;
+      // El endpoint ahora obtiene el UID del JWT en la cookie, no necesitamos enviarlo
+      const url = `${config.BACKEND_URL}/api/metadatos-documento/usuario`;
       console.log('🌐 URL:', url);
       
       const response = await fetch(url, {
