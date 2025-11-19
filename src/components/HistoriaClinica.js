@@ -1,144 +1,384 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 
-const HistoriaClinica = () => {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+const GestionClinicas = () => {
+  const [nodos, setNodos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [documentosClinicos, setDocumentosClinicos] = useState([]);
-  const [loadingDocumentos, setLoadingDocumentos] = useState(false);
-  const [error, setError] = useState(null);
-  const [filtros, setFiltros] = useState({
-    categoria: 'todos',
-    institucion: 'todos',
-    profesional: 'todos'
+  const [departamentos, setDepartamentos] = useState([]);
+
+  const [formData, setFormData] = useState({
+    nombre: '',
+    contacto: '' // Email de contacto del administrador
+    // Los demás datos (RUT, dirección, etc.) los ingresa la clínica al activarse
+    // El estado se establece automáticamente en el backend como PENDIENTE
   });
 
-  const checkSession = useCallback(async () => {
+  const [editingRUT, setEditingRUT] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+  const [showActivationModal, setShowActivationModal] = useState(false);
+  const [activationData, setActivationData] = useState(null);
+
+  useEffect(() => {
+    loadNodos();
+    loadDepartamentos();
+  }, []);
+
+  const loadNodos = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      setLoading(true);
+      const response = await fetch('http://localhost:8080/api/nodos', {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         }
       });
+
+      // Leer el cuerpo de la respuesta una sola vez
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
       
-      const data = await response.json();
-      
-      if (data.authenticated) {
-        console.log('👤 Datos del usuario recibidos:', data);
-        console.log('📋 Campo documento:', data.documento);
-        console.log('📋 Todos los campos del usuario:', Object.keys(data));
-        setUser(data);
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch (e) {
+        throw new Error(`Error leyendo respuesta: ${e.message}`);
+      }
+
+      if (response.ok) {
+        if (isJson && responseBody) {
+          try {
+            const data = JSON.parse(responseBody);
+            setNodos(data);
+          } catch (e) {
+            throw new Error(`Error parseando JSON: ${e.message}`);
+          }
+        } else {
+          throw new Error('Respuesta no es JSON válido');
+        }
       } else {
-        console.log('❌ Sesión no válida, redirigiendo a login');
-        setUser(null);
-        window.location.href = '/';
+        let errorMessage = `Error HTTP ${response.status}`;
+        if (isJson && responseBody) {
+          try {
+            const errorJson = JSON.parse(responseBody);
+            errorMessage += ': ' + (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          } catch (e) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+        } else if (responseBody) {
+          errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+        }
+        showMessage(errorMessage, 'error');
       }
     } catch (error) {
-      console.error('Error verificando sesión:', error);
-      setUser(null);
-      window.location.href = '/';
+      console.error('Error cargando nodos:', error);
+      showMessage(`Error de conexión: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const loadDocumentos = useCallback(async (ci) => {
-    setLoadingDocumentos(true);
-    setError(null);
-    console.log('🔍 Cargando documentos para CI:', ci);
-    try {
-      const url = `http://localhost:8080/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`;
-      console.log('🌐 URL:', url);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Profesional-Id': user?.uid || ''
-        }
-      });
+  const loadDepartamentos = () => {
+    const deptos = [
+      'ARTIGAS', 'CANELONES', 'CERRO_LARGO', 'COLONIA', 'DURAZNO',
+      'FLORES', 'FLORIDA', 'LAVALLEJA', 'MALDONADO', 'MONTEVIDEO',
+      'PAYSANDU', 'RIO_NEGRO', 'RIVERA', 'ROCHA', 'SALTO',
+      'SAN_JOSE', 'SORIANO', 'TACUAREMBO', 'TREINTA_Y_TRES'
+    ];
+    setDepartamentos(deptos);
+  };
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', response.headers);
+  const showMessage = (msg, type) => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => {
+      setMessage('');
+      setMessageType('');
+    }, 5000);
+  };
 
-      if (!response.ok) {
-        throw new Error(`Error al cargar documentos: ${response.status}`);
-      }
-
-      const documentos = await response.json();
-      console.log('📄 Documentos recibidos del backend:', documentos);
-      console.log('🆔 IDs de documentos del backend:', documentos.map(doc => doc.id));
-      
-      // Mapear los documentos del backend al formato esperado por el frontend
-      const documentosMapeados = documentos.map((doc, index) => ({
-        id: doc.id || (index + 1), // Usar ID real del backend o índice + 1
-        fecha: doc.fechaCreacion || 'N/A',
-        institucion: doc.clinicaOrigen || 'Institución Desconocida',
-        categoria: doc.tipoDocumento || 'Sin Categoría',
-        profesional: doc.profesionalSalud || 'Profesional Desconocido',
-        descripcion: doc.descripcion || 'Sin descripción disponible',
-        formatoDocumento: doc.formatoDocumento,
-        uriDocumento: doc.uriDocumento,
-        accesoPermitido: doc.accesoPermitido !== false
-      }));
-
-      console.log('💾 Documentos mapeados guardados en estado:', documentosMapeados);
-      setDocumentosClinicos(documentosMapeados);
-    } catch (error) {
-      console.error('❌ Error cargando documentos:', error);
-      console.error('❌ Error details:', error.message);
-      setError('No se pudieron cargar los documentos clínicos. Por favor, intente más tarde.');
-      setDocumentosClinicos([]);
-    } finally {
-      setLoadingDocumentos(false);
-    }
-  }, [user?.uid]);
-
-  useEffect(() => {
-    checkSession();
-  }, [checkSession]);
-
-  useEffect(() => {
-    console.log('🔄 useEffect ejecutado. User:', user);
-    if (user && user.documento && user.documento.trim() !== '') {
-      console.log('📋 Usuario tiene documento:', user.documento);
-      loadDocumentos(user.documento);
-    } else if (user && user.uid && user.uid.startsWith('uy-ci-')) {
-      // TEMPORAL: Extraer documento del UID (uy-ci-53472408 -> 53472408)
-      const documentoExtraido = user.uid.replace('uy-ci-', '');
-      console.log('🔧 TEMPORAL: Extrayendo documento del UID:', documentoExtraido);
-      loadDocumentos(documentoExtraido);
-    } else if (user) {
-      console.log('❌ Usuario no tiene documento o no está logueado');
-      console.log('User:', user);
-    }
-  }, [user, loadDocumentos]);
-
-  const handleFiltroChange = (campo, valor) => {
-    setFiltros(prev => ({
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
       ...prev,
-      [campo]: valor
+      [name]: value
     }));
   };
 
-  const documentosFiltrados = documentosClinicos.filter(doc => {
-    if (filtros.categoria !== 'todos' && doc.categoria !== filtros.categoria) return false;
-    if (filtros.institucion !== 'todos' && doc.institucion !== filtros.institucion) return false;
-    if (filtros.profesional !== 'todos' && doc.profesional !== filtros.profesional) return false;
-    return true;
-  });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      if (editingRUT) {
+        const response = await fetch(`http://localhost:8080/api/nodos/${editingRUT}`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
 
-  const categorias = [...new Set(documentosClinicos.map(doc => doc.categoria))];
-  const instituciones = [...new Set(documentosClinicos.map(doc => doc.institucion))];
-  const profesionales = [...new Set(documentosClinicos.map(doc => doc.profesional))];
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
+          return;
+        }
 
-  console.log('🎨 Renderizando con documentosClinicos:', documentosClinicos);
-  console.log('🎨 Cantidad de documentos:', documentosClinicos.length);
-  console.log('🎨 Documentos filtrados:', documentosFiltrados.length);
+        if (response.ok) {
+          showMessage('Nodo periférico actualizado exitosamente', 'success');
+          loadNodos();
+        } else {
+          let errorMessage = `Error HTTP ${response.status}`;
+          if (isJson && responseBody) {
+            try {
+              const errorJson = JSON.parse(responseBody);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+            } catch (e) {
+              errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+            }
+          } else if (responseBody) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+          showMessage('Error actualizando nodo: ' + errorMessage, 'error');
+          return;
+        }
+      } else {
+        const response = await fetch('http://localhost:8080/api/nodos', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
+          return;
+        }
+
+        if (response.ok) {
+          if (isJson && responseBody) {
+            try {
+              const createdNodo = JSON.parse(responseBody);
+              showMessage(
+                `✅ Invitación enviada a ${formData.contacto}. ` +
+                `El administrador recibirá un email para completar el registro de la clínica.`,
+                'success'
+              );
+              loadNodos(); // Recargar la lista para mostrar la clínica con estado PENDIENTE
+            } catch (e) {
+              showMessage(`Error parseando respuesta: ${e.message}`, 'error');
+              return;
+            }
+          } else {
+            showMessage('Respuesta inválida del servidor', 'error');
+            return;
+          }
+        } else {
+          let errorMessage = `Error HTTP ${response.status}`;
+          if (isJson && responseBody) {
+            try {
+              const errorJson = JSON.parse(responseBody);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+            } catch (e) {
+              errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+            }
+          } else if (responseBody) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+          showMessage('Error creando nodo: ' + errorMessage, 'error');
+          return;
+        }
+      }
+
+      resetForm();
+    } catch (error) {
+      console.error('Error en submit:', error);
+      showMessage('Error de conexión', 'error');
+    }
+  };
+
+  /**
+   * Muestra el modal con información de activación de la clínica.
+   */
+  const buildActivationMessage = (nodo) => {
+    if (!nodo.activationUrl) {
+      showMessage('¡Clínica activada exitosamente! El tenant está listo.', 'success');
+      return;
+    }
+
+    // Guardar datos y mostrar modal
+    setActivationData({
+      clinicName: nodo.nombre,
+      adminNickname: nodo.adminNickname,
+      activationUrl: nodo.activationUrl,
+      adminEmail: nodo.adminEmail,
+      portalUrl: `${nodo.nodoPerifericoUrlBase}/portal/clinica/${nodo.id}`,
+      tenantId: nodo.id
+    });
+    setShowActivationModal(true);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      showMessage('Copiado al portapapeles', 'info');
+    }).catch(err => {
+      console.error('Error copiando:', err);
+    });
+  };
+
+  /**
+   * Hace polling del estado de un nodo hasta que cambie de PENDIENTE a ACTIVO o ERROR_MENSAJERIA.
+   * Esto permite mostrar feedback en tiempo real sobre la inicialización del tenant.
+   */
+  const pollEstadoNodo = async (rut) => {
+    const maxIntentos = 30; // 30 segundos máximo
+    let intentos = 0;
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          console.error('Error leyendo respuesta en polling:', e);
+          return; // Continuar polling en el siguiente intento
+        }
+
+        if (response.ok) {
+          if (isJson && responseBody) {
+            try {
+              const nodo = JSON.parse(responseBody);
+              console.log(`Polling estado for ${rut}: ${nodo.estado} (intento ${intentos + 1}/${maxIntentos})`);
+              
+              if (nodo.estado === 'ACTIVO') {
+                clearInterval(interval);
+                
+                // Mostrar información de activación
+                const activationInfo = buildActivationMessage(nodo);
+                showMessage(activationInfo, 'success');
+                loadNodos();
+              } else if (nodo.estado === 'ERROR_MENSAJERIA') {
+                clearInterval(interval);
+                showMessage('Error al activar clínica. El tenant no pudo inicializarse. Verifique la configuración.', 'error');
+                loadNodos();
+              }
+              // Si sigue en PENDIENTE, continuar polling
+            } catch (e) {
+              console.error('Error parseando JSON en polling:', e);
+              // Continuar polling en el siguiente intento
+            }
+          }
+        }
+        
+        intentos++;
+        if (intentos >= maxIntentos) {
+          clearInterval(interval);
+          showMessage('Timeout esperando activación. La clínica se creó pero verifique su estado manualmente.', 'warning');
+          loadNodos();
+        }
+      } catch (error) {
+        console.error('Error en polling:', error);
+        // No detener el polling por un error puntual
+      }
+    }, 1000); // Poll cada segundo
+  };
+
+  const handleEdit = (nodo) => {
+    setFormData({
+      nombre: nodo.nombre || '',
+      RUT: nodo.rut || '',
+      departamento: nodo.departamento || '',
+      localidad: nodo.localidad || '',
+      direccion: nodo.direccion || '',
+      contacto: nodo.contacto || '',
+      url: nodo.url || '',
+      nodoPerifericoUrlBase: nodo.nodoPerifericoUrlBase || '',
+      nodoPerifericoUsuario: nodo.nodoPerifericoUsuario || '',
+      nodoPerifericoPassword: nodo.nodoPerifericoPassword || ''
+      // No enviar estado al editar, el backend lo maneja
+    });
+    setEditingRUT(nodo.rut);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (rut) => {
+    if (!window.confirm('¿Está seguro de que desea eliminar este nodo periférico?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok || response.status === 204) {
+        showMessage('Nodo periférico eliminado exitosamente', 'success');
+        loadNodos();
+      } else {
+        showMessage('Error eliminando nodo', 'error');
+      }
+    } catch (error) {
+      console.error('Error eliminando nodo:', error);
+      showMessage('Error de conexión al eliminar', 'error');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      nombre: '',
+      contacto: ''
+      // El estado se establece automáticamente en el backend
+    });
+    setEditingRUT(null);
+    setShowForm(false);
+  };
+
+  const formatDepartamentoDisplay = (depto) => {
+    if (!depto) return '';
+    return depto.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+  };
+
+  const getEstadoBadgeColor = (estado) => {
+    switch (estado) {
+      case 'ACTIVO': return '#10b981';
+      case 'INACTIVO': return '#6b7280';
+      case 'MANTENIMIENTO': return '#f59e0b';
+      case 'ERROR_MENSAJERIA': return '#ef4444';
+      case 'PENDIENTE': return '#3b82f6';
+      case 'PENDIENTE_ACTIVACION': return '#3b82f6'; // Compatibilidad con datos antiguos
+      default: return '#6b7280';
+    }
+  };
 
   if (loading) {
     return (
@@ -147,38 +387,7 @@ const HistoriaClinica = () => {
           <div className="row">
             <div className="col-xl-12">
               <div className="slider_text text-center">
-                <h3>Cargando...</h3>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center'}}>
-        <div className="container">
-          <div className="row">
-            <div className="col-xl-12">
-              <div className="slider_text text-center">
-                <h3 style={{color: '#1f2b7b', marginBottom: '20px'}}>Acceso Restringido</h3>
-                <p style={{color: '#64748b', fontSize: '18px', marginBottom: '30px'}}>
-                  Debes iniciar sesión para acceder a tu historia clínica
-                </p>
-                <a href="/" className="boxed-btn3" style={{
-                  padding: '12px 24px',
-                  fontSize: '14px',
-                  textDecoration: 'none',
-                  backgroundColor: '#3b82f6',
-                  color: '#ffffff',
-                  borderRadius: '8px',
-                  fontWeight: '600',
-                  display: 'inline-block'
-                }}>
-                  Volver al Inicio
-                </a>
+                <h3>Cargando clínicas...</h3>
               </div>
             </div>
           </div>
@@ -190,9 +399,9 @@ const HistoriaClinica = () => {
   return (
     <>
       <div className="bradcam_area" style={{
-        paddingTop: '120px', 
+        paddingTop: '120px',
         paddingBottom: '80px',
-        background: 'linear-gradient(135deg, #1f2b7b 0%, #3b82f6 100%)',
+        background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
         position: 'relative',
         overflow: 'hidden',
         marginTop: '0px'
@@ -208,7 +417,7 @@ const HistoriaClinica = () => {
                   marginBottom: '15px',
                   textShadow: '0 2px 4px rgba(0,0,0,0.3)'
                 }}>
-                  Mi Historia Clínica
+                  Gestión de Clínicas
                 </h3>
                 <p style={{
                   color: '#e2e8f0',
@@ -216,466 +425,482 @@ const HistoriaClinica = () => {
                   marginBottom: '0',
                   fontWeight: '400'
                 }}>
-                  Bienvenido, <strong style={{color: '#ffffff'}}>{user.nombre || 'Usuario'}</strong>
+                  Administra las clínicas y centros de salud integrados al sistema
                 </p>
               </div>
             </div>
           </div>
         </div>
-        <div style={{
-          position: 'absolute',
-          top: '0',
-          left: '0',
-          right: '0',
-          bottom: '0',
-          background: 'url("/assets/img/banner/banner.png") center/cover',
-          opacity: '0.1',
-          zIndex: '1'
-        }}></div>
       </div>
 
-      <div className="container" style={{paddingTop: '60px', paddingBottom: '60px'}}>
+      <div className="container" style={{paddingTop: '80px', paddingBottom: '60px'}}>
+        {message && (
+          <div className={`alert ${
+            messageType === 'success' ? 'alert-success' : 
+            messageType === 'info' ? 'alert-info' :
+            messageType === 'warning' ? 'alert-warning' :
+            'alert-danger'
+          } alert-dismissible fade show`} role="alert" style={{
+            borderRadius: '8px',
+            padding: '15px 20px',
+            marginBottom: '20px'
+          }}>
+            {message}
+            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
+          </div>
+        )}
+
         <div className="row">
-          {/* Filtros - Barra lateral */}
-          <div className="col-xl-3 col-lg-4">
-            <div className="sidebar_widget" style={{
-              backgroundColor: '#ffffff',
-              padding: '35px',
-              borderRadius: '15px',
-              marginBottom: '30px',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-              border: '1px solid #e2e8f0'
-            }}>
-              <h4 style={{
-                marginBottom: '25px', 
-                color: '#1f2b7b',
-                fontSize: '24px',
-                fontWeight: '700',
-                borderBottom: '3px solid #3b82f6',
-                paddingBottom: '10px'
-              }}>
-                <i className="flaticon-filter" style={{marginRight: '8px'}}></i>
-                Filtros
+          <div className="col-xl-12">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h4 style={{color: '#1f2937', fontWeight: '600'}}>
+                <i className="fa fa-hospital" style={{marginRight: '10px', color: '#3b82f6'}}></i>
+                Clínicas Registradas
               </h4>
-              
-              <div className="widget_inner" style={{marginBottom: '40px'}}>
-                <h5 style={{
-                  fontSize: '16px', 
-                  marginBottom: '20px',
-                  color: '#2d3748',
-                  fontWeight: '600'
-                }}>
-                  <i className="flaticon-file" style={{marginRight: '8px', color: '#3b82f6'}}></i>
-                  Categoría
-                </h5>
-                <div className="" style={{width: '100%'}}>
-                  <select 
-                    value={filtros.categoria} 
-                    onChange={(e) => handleFiltroChange('categoria', e.target.value)}
-                    style={{
-                      width: '100%', 
-                      padding: '15px 20px', 
-                      border: '2px solid #e2e8f0', 
-                      borderRadius: '10px',
-                      backgroundColor: '#ffffff',
-                      fontSize: '15px',
-                      color: '#2d3748',
-                      transition: 'all 0.3s ease',
-                      outline: 'none',
-                      height: '50px'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                  >
-                    <option value="todos">Todas las categorías</option>
-                    {categorias.map(categoria => (
-                      <option key={categoria} value={categoria}>{categoria}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="widget_inner" style={{marginBottom: '40px'}}>
-                <h5 style={{
-                  fontSize: '16px', 
-                  marginBottom: '20px',
-                  color: '#2d3748',
-                  fontWeight: '600'
-                }}>
-                  <i className="flaticon-hospital" style={{marginRight: '8px', color: '#3b82f6'}}></i>
-                  Institución
-                </h5>
-                <div className="" style={{width: '100%'}}>
-                  <select 
-                    value={filtros.institucion} 
-                    onChange={(e) => handleFiltroChange('institucion', e.target.value)}
-                    style={{
-                      width: '100%', 
-                      padding: '15px 20px', 
-                      border: '2px solid #e2e8f0', 
-                      borderRadius: '10px',
-                      backgroundColor: '#ffffff',
-                      fontSize: '15px',
-                      color: '#2d3748',
-                      transition: 'all 0.3s ease',
-                      outline: 'none',
-                      height: '50px'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                  >
-                    <option value="todos">Todas las instituciones</option>
-                    {instituciones.map(institucion => (
-                      <option key={institucion} value={institucion}>{institucion}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="widget_inner" style={{marginBottom: '40px'}}>
-                <h5 style={{
-                  fontSize: '16px', 
-                  marginBottom: '20px',
-                  color: '#2d3748',
-                  fontWeight: '600'
-                }}>
-                  <i className="flaticon-doctor" style={{marginRight: '8px', color: '#3b82f6'}}></i>
-                  Profesional
-                </h5>
-                <div className="" style={{width: '100%'}}>
-                  <select 
-                    value={filtros.profesional} 
-                    onChange={(e) => handleFiltroChange('profesional', e.target.value)}
-                    style={{
-                      width: '100%', 
-                      padding: '15px 20px', 
-                      border: '2px solid #e2e8f0', 
-                      borderRadius: '10px',
-                      backgroundColor: '#ffffff',
-                      fontSize: '15px',
-                      color: '#2d3748',
-                      transition: 'all 0.3s ease',
-                      outline: 'none',
-                      height: '50px'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                  >
-                    <option value="todos">Todos los profesionales</option>
-                    {profesionales.map(profesional => (
-                      <option key={profesional} value={profesional}>{profesional}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="widget_inner" style={{
-                backgroundColor: '#f7fafc',
-                padding: '20px',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0'
-              }}>
-                <h5 style={{
-                  fontSize: '16px', 
-                  marginBottom: '15px',
-                  color: '#2d3748',
-                  fontWeight: '600'
-                }}>
-                  <i className="flaticon-search" style={{marginRight: '8px', color: '#3b82f6'}}></i>
-                  Resultados
-                </h5>
-                <div style={{
+              <button 
+                style={{
                   backgroundColor: '#3b82f6',
                   color: '#ffffff',
-                  padding: '12px 16px',
+                  border: 'none',
                   borderRadius: '8px',
-                  textAlign: 'center',
+                  padding: '12px 24px',
+                  fontSize: '16px',
                   fontWeight: '600',
-                  fontSize: '16px'
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onClick={() => setShowForm(true)}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#2563eb'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#3b82f6'}
+              >
+                <i className="fa fa-plus" style={{marginRight: '8px'}}></i>
+                Nuevo Nodo
+              </button>
+            </div>
+
+            {showForm && (
+              <div className="card mb-4" style={{
+                borderRadius: '15px',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+                border: '1px solid #e5e7eb'
+              }}>
+                <div className="card-header" style={{
+                  backgroundColor: '#f8fafc',
+                  borderBottom: '2px solid #e5e7eb',
+                  borderTopLeftRadius: '15px',
+                  borderTopRightRadius: '15px',
+                  padding: '20px 30px'
                 }}>
-                  {documentosFiltrados.length} de {documentosClinicos.length} documentos
+                  <h5 style={{color: '#1f2937', fontWeight: '600', marginBottom: '0'}}>
+                    {editingRUT ? 'Editar Nodo Periférico' : 'Nuevo Nodo Periférico'}
+                  </h5>
                 </div>
+                <div className="card-body" style={{padding: '30px'}}>
+                  <form onSubmit={handleSubmit}>
+                    <h6 style={{color: '#374151', fontWeight: '600', marginBottom: '20px', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px'}}>
+                      Información Básica
+                    </h6>
+                    
+                    <div style={{padding: '20px', backgroundColor: '#eff6ff', borderRadius: '12px', marginBottom: '25px', border: '1px solid #bfdbfe'}}>
+                      <p style={{margin: '0', color: '#1e40af', fontSize: '14px', lineHeight: '1.6'}}>
+                        <i className="fa fa-info-circle" style={{marginRight: '10px', color: '#3b82f6'}}></i>
+                        <strong>Nuevo Flujo de Registro:</strong> Solo necesita ingresar el nombre y email de contacto. El administrador de la clínica recibirá un email con un enlace para completar el registro (RUT, dirección, crear usuario y contraseña).
+                      </p>
+                    </div>
+
+                    <div className="row">
+                      <div className="col-md-12 mb-3">
+                        <label htmlFor="nombre" className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                          Nombre de la Clínica *
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          id="nombre"
+                          name="nombre"
+                          value={formData.nombre}
+                          onChange={handleInputChange}
+                          required
+                          placeholder="Ej: Clínica Santa María"
+                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '12px 15px', fontSize: '15px'}}
+                        />
+                        <small style={{color: '#6b7280', fontSize: '13px'}}>
+                          Nombre oficial de la clínica o centro de salud
+                        </small>
+                      </div>
+                    </div>
+                    
+                    <div className="row">
+                      <div className="col-md-12 mb-3">
+                        <label htmlFor="contacto" className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                          Email del Administrador *
+                        </label>
+                        <input
+                          type="email"
+                          className="form-control"
+                          id="contacto"
+                          name="contacto"
+                          value={formData.contacto}
+                          onChange={handleInputChange}
+                          required
+                          placeholder="admin@clinica.com"
+                          style={{borderRadius: '8px', border: '2px solid #e5e7eb', padding: '12px 15px', fontSize: '15px'}}
+                        />
+                        <small style={{color: '#6b7280', fontSize: '13px'}}>
+                          El administrador recibirá un email para completar el registro de la clínica
+                        </small>
+                      </div>
+                    </div>
+
+                    <div className="d-flex gap-2 mt-4">
+                      <button type="submit" style={{
+                        backgroundColor: '#10b981',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}>
+                        {editingRUT ? 'Actualizar' : 'Guardar'}
+                      </button>
+                      <button type="button" style={{
+                        backgroundColor: '#6b7280',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }} onClick={resetForm}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="card" style={{
+              borderRadius: '15px',
+              boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div className="card-body" style={{padding: '30px'}}>
+                {nodos.length === 0 ? (
+                  <div className="text-center py-5">
+                    <i className="fa fa-hospital" style={{fontSize: '64px', color: '#d1d5db', marginBottom: '20px'}}></i>
+                    <p style={{color: '#6b7280', fontSize: '18px'}}>No hay clínicas registradas</p>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover" style={{width: '100%'}}>
+                      <thead style={{backgroundColor: '#f8fafc'}}>
+                        <tr>
+                          <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Nombre</th>
+                          <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>RUT</th>
+                          <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Ubicación</th>
+                          <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Contacto</th>
+                          <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Estado</th>
+                          <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {nodos.map(nodo => (
+                          <tr key={nodo.rut} style={{
+                            backgroundColor: '#ffffff',
+                            transition: 'all 0.2s ease'
+                          }}>
+                            <td style={{padding: '15px 20px'}}>
+                              <strong style={{color: '#1f2937'}}>{nodo.nombre}</strong>
+                            </td>
+                            <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace'}}>{nodo.rut}</td>
+                            <td style={{padding: '15px 20px', color: '#374151'}}>
+                              {formatDepartamentoDisplay(nodo.departamento)}
+                              {nodo.localidad && <><br/><small style={{color: '#6b7280'}}>{nodo.localidad}</small></>}
+                            </td>
+                            <td style={{padding: '15px 20px', color: '#374151'}}>{nodo.contacto || '-'}</td>
+                            <td style={{padding: '15px 20px'}}>
+                              <span style={{
+                                padding: '6px 12px',
+                                borderRadius: '5px',
+                                fontWeight: '600',
+                                fontSize: '12px',
+                                backgroundColor: getEstadoBadgeColor(nodo.estado),
+                                color: '#ffffff'
+                              }}>
+                                {nodo.estado}
+                              </span>
+                            </td>
+                            <td style={{padding: '15px 20px'}}>
+                              <div style={{display: 'flex', gap: '8px'}}>
+                                <button
+                                  style={{
+                                    backgroundColor: '#3b82f6',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontSize: '13px',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => handleEdit(nodo)}
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  style={{
+                                    backgroundColor: '#ef4444',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontSize: '13px',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => handleDelete(nodo.rut)}
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Lista de documentos */}
-          <div className="col-xl-9 col-lg-8">
-            {loadingDocumentos ? (
-              <div style={{
-                backgroundColor: '#ffffff',
-                padding: '60px',
-                borderRadius: '15px',
-                textAlign: 'center',
-                boxShadow: '0 8px 25px rgba(0,0,0,0.08)'
+      {/* Modal de Información de Activación */}
+      {showActivationModal && activationData && (
+        <div className="modal fade show" style={{
+          display: 'block',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 1050
+        }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content" style={{
+              borderRadius: '15px',
+              border: 'none',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+            }}>
+              <div className="modal-header" style={{
+                borderBottom: '1px solid #e5e7eb',
+                padding: '25px 30px',
+                backgroundColor: '#f0fdf4',
+                borderTopLeftRadius: '15px',
+                borderTopRightRadius: '15px'
               }}>
-                <div className="spinner-border text-primary" role="status" style={{marginBottom: '20px'}}>
-                  <span className="sr-only">Cargando...</span>
+                <h5 className="modal-title" style={{
+                  color: '#047857',
+                  fontWeight: '700',
+                  fontSize: '24px'
+                }}>
+                  <i className="fa fa-check-circle" style={{marginRight: '12px', color: '#10b981'}}></i>
+                  ¡Clínica Creada Exitosamente!
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowActivationModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body" style={{padding: '30px'}}>
+                <div className="alert alert-info" style={{
+                  backgroundColor: '#e0f2fe',
+                  border: '1px solid #0ea5e9',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  marginBottom: '25px'
+                }}>
+                  <i className="fa fa-info-circle" style={{marginRight: '8px'}}></i>
+                  <strong>Email de Activación Enviado</strong> a: {activationData.adminEmail || 'administrador de la clínica'}
                 </div>
-                <p style={{color: '#64748b', fontSize: '16px'}}>Cargando documentos clínicos...</p>
-              </div>
-            ) : error ? (
-              <div style={{
-                backgroundColor: '#fff1f2',
-                padding: '40px',
-                borderRadius: '15px',
-                textAlign: 'center',
-                border: '1px solid #fecaca'
-              }}>
-                <i className="flaticon-warning" style={{fontSize: '48px', color: '#dc2626', marginBottom: '15px'}}></i>
-                <p style={{color: '#dc2626', fontSize: '16px', marginBottom: '0'}}>{error}</p>
-              </div>
-            ) : documentosFiltrados.length === 0 ? (
-              <div style={{
-                backgroundColor: '#ffffff',
-                padding: '60px',
-                borderRadius: '15px',
-                textAlign: 'center',
-                boxShadow: '0 8px 25px rgba(0,0,0,0.08)'
-              }}>
-                <i className="flaticon-folder" style={{fontSize: '64px', color: '#cbd5e1', marginBottom: '20px'}}></i>
-                <h4 style={{color: '#475569', marginBottom: '10px'}}>
-                  {documentosClinicos.length === 0 ? 'No hay documentos disponibles' : 'No se encontraron documentos'}
-                </h4>
-                <p style={{color: '#64748b'}}>
-                  {documentosClinicos.length === 0 
-                    ? 'Aún no tienes documentos clínicos registrados en el sistema.'
-                    : 'Intenta cambiar los filtros para ver más resultados.'}
-                </p>
-              </div>
-            ) : (
-              <div className="row">
-                {documentosFiltrados.map(documento => (
-                <div key={documento.id} className="col-xl-12" style={{marginBottom: '35px'}}>
-                  <div className="single_blog" style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: '15px',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
-                    overflow: 'hidden',
-                    transition: 'all 0.3s ease',
-                    border: '1px solid #e2e8f0',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-5px)';
-                    e.currentTarget.style.boxShadow = '0 15px 35px rgba(0,0,0,0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.08)';
+
+                <div style={{marginBottom: '20px'}}>
+                  <h6 style={{color: '#374151', marginBottom: '15px', fontWeight: '600', fontSize: '16px'}}>
+                    📋 Información para el Administrador de la Clínica
+                  </h6>
+                  
+                  <div style={{
+                    backgroundColor: '#f8fafc',
+                    padding: '20px',
+                    borderRadius: '10px',
+                    border: '1px solid #e5e7eb',
+                    marginBottom: '15px'
                   }}>
-                    <div className="row no-gutters">
-                      {/* Imagen/Icono */}
-                      <div className="col-xl-3 col-lg-4">
-                        <div className="blog_thumb" style={{
-                          height: '180px',
-                          background: `linear-gradient(135deg, #1f2b7b 0%, #3b82f6 50%, #06b6d4 100%)`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          position: 'relative',
-                          overflow: 'hidden'
+                    <div style={{marginBottom: '15px'}}>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        👤 Usuario Administrador
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <code style={{
+                          backgroundColor: '#ffffff',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          fontFamily: 'monospace',
+                          fontSize: '14px',
+                          flex: 1
                         }}>
-                          <div style={{
-                            position: 'absolute',
-                            top: '0',
-                            left: '0',
-                            right: '0',
-                            bottom: '0',
-                            background: 'rgba(255,255,255,0.1)',
-                            backdropFilter: 'blur(10px)'
-                          }}></div>
-                          <i className={`flaticon-${documento.categoria === 'Policlínica' ? 'doctor' : 
-                            documento.categoria === 'Laboratorio' ? 'test-tube' :
-                            documento.categoria === 'Imagenología' ? 'x-ray' :
-                            documento.categoria === 'Vacunación' ? 'syringe' : 
-                            documento.categoria === 'Especialidad' ? 'medical' : 'file'}`} 
-                            style={{
-                              fontSize: '48px', 
-                              color: '#ffffff',
-                              zIndex: '2',
-                              position: 'relative',
-                              textShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                            }}></i>
-                        </div>
+                          {activationData.adminNickname}
+                        </code>
+                        <button
+                          onClick={() => copyToClipboard(activationData.adminNickname)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
                       </div>
-                      
-                      {/* Contenido */}
-                      <div className="col-xl-9 col-lg-8">
-                        <div className="blog_content" style={{padding: '25px'}}>
-                          <div className="blog_meta" style={{marginBottom: '20px'}}>
-                            <span style={{
-                              backgroundColor: '#1f2b7b',
-                              color: '#ffffff',
-                              padding: '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px'
-                            }}>
-                              {documento.categoria}
-                            </span>
-                            <span style={{
-                              marginLeft: '12px', 
-                              color: '#64748b', 
-                              fontSize: '13px',
-                              fontWeight: '500'
-                            }}>
-                              <i className="flaticon-calendar" style={{marginRight: '5px'}}></i>
-                              {documento.fecha}
-                            </span>
-                          </div>
-                          
-                          <h3 style={{
-                            fontSize: '20px',
-                            fontWeight: '700',
-                            marginBottom: '15px',
-                            color: '#1e293b',
-                            lineHeight: '1.3'
-                          }}>
-                            {documento.institucion}
-                          </h3>
-                          
-                          <div style={{
-                            backgroundColor: '#f8fafc',
-                            padding: '10px 14px',
-                            borderRadius: '8px',
-                            marginBottom: '15px',
-                            border: '1px solid #e2e8f0'
-                          }}>
-                            <p style={{
-                              color: '#475569',
-                              marginBottom: '0',
-                              fontSize: '13px',
-                              fontWeight: '500'
-                            }}>
-                              <i className="flaticon-user" style={{marginRight: '6px', color: '#3b82f6'}}></i>
-                              <strong>Profesional:</strong> {documento.profesional}
-                            </p>
-                          </div>
-                          
-                          <p style={{
-                            color: '#475569',
-                            marginBottom: '20px',
-                            lineHeight: '1.6',
-                            fontSize: '14px'
-                          }}>
-                            {documento.descripcion}
-                          </p>
-                          
-                          <div className="d-flex justify-content-between align-items-center" style={{
-                            paddingTop: '15px',
-                            borderTop: '1px solid #e2e8f0'
-                          }}>
-                            <div style={{
-                              color: '#64748b', 
-                              fontSize: '13px',
-                              fontWeight: '500'
-                            }}>
-                              <i className="flaticon-calendar" style={{marginRight: '6px', color: '#3b82f6'}}></i>
-                              {documento.fecha}
-                            </div>
-                            <button
-                              type="button"
-                              className="boxed-btn3"
-                              style={{
-                                padding: '8px 20px',
-                                fontSize: '13px',
-                                backgroundColor: '#3b82f6',
-                                color: '#ffffff',
-                                borderRadius: '6px',
-                                fontWeight: '600',
-                                transition: 'all 0.3s ease',
-                                border: 'none',
-                                cursor: 'pointer'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = '#1d4ed8';
-                                e.target.style.transform = 'translateY(-2px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = '#3b82f6';
-                                e.target.style.transform = 'translateY(0)';
-                              }}
-                              onClick={() => {
-                                navigate(`/documento/${documento.id}`);
-                              }}
-                            >
-                              <i className="flaticon-eye" style={{marginRight: '4px'}}></i>
-                              Ver Detalle
-                            </button>
-                          </div>
-                        </div>
+                    </div>
+
+                    <div style={{marginBottom: '15px'}}>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        🔗 URL de Activación (válida por 48 horas)
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={activationData.activationUrl}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            flex: 1
+                          }}
+                        />
+                        <button
+                          onClick={() => copyToClipboard(activationData.activationUrl)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
+                        🏥 URL del Portal (después de activar)
+                      </label>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={activationData.portalUrl}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            flex: 1
+                          }}
+                        />
+                        <button
+                          onClick={() => copyToClipboard(activationData.portalUrl)}
+                          style={{
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <i className="fa fa-copy"></i>
+                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      <footer className="footer">
-        <div className="footer_top">
-          <div className="container">
-            <div className="row">
-              <div className="col-xl-4 col-md-6 col-lg-4">
-                <div className="footer_widget">
-                  <div className="footer_logo">
-                    <a href="/">
-                      <img src="/assets/img/logo.png" alt="HCEN" style={{maxWidth: '150px'}} />
-                    </a>
+                  <div className="alert alert-warning" style={{
+                    backgroundColor: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    marginBottom: '0'
+                  }}>
+                    <i className="fa fa-exclamation-triangle" style={{marginRight: '8px'}}></i>
+                    <strong>Importante:</strong> Envíe el enlace de activación al administrador de la clínica {activationData.clinicName}.
+                    El enlace es válido por 48 horas.
                   </div>
-                  <p>
-                    HCEN - Historia Clínica Electrónica Nacional
-                  </p>
+                </div>
+
+                <div style={{
+                  backgroundColor: '#f8fafc',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <h6 style={{color: '#374151', marginBottom: '10px', fontSize: '14px', fontWeight: '600'}}>
+                    📝 Instrucciones para el Administrador
+                  </h6>
+                  <ol style={{marginBottom: '0', paddingLeft: '20px', color: '#6b7280', fontSize: '13px'}}>
+                    <li>Abrir el enlace de activación recibido por email</li>
+                    <li>Crear una contraseña segura (mínimo 8 caracteres)</li>
+                    <li>Iniciar sesión con el usuario: <strong>{activationData.adminNickname}</strong></li>
+                    <li>Acceder al portal de la clínica</li>
+                  </ol>
                 </div>
               </div>
-              <div className="col-xl-4 col-md-6 col-lg-4">
-                <div className="footer_widget">
-                  <h3 className="footer_title">
-                    Enlaces Útiles
-                  </h3>
-                  <ul>
-                    <li><a href="https://www.gub.uy">Gobierno de Uruguay</a></li>
-                    <li><a href="https://www.msp.gub.uy">Ministerio de Salud Pública</a></li>
-                    <li><a href="https://www.gub.uy/tramites">Trámites</a></li>
-                  </ul>
-                </div>
-              </div>
-              <div className="col-xl-4 col-md-6 col-lg-4">
-                <div className="footer_widget">
-                  <h3 className="footer_title">
-                    Contacto
-                  </h3>
-                  <p>
-                    Montevideo, Uruguay<br />
-                    Email: info@hcen.gub.uy<br />
-                    Tel: 0800 1234
-                  </p>
-                </div>
+              <div className="modal-footer" style={{
+                borderTop: '1px solid #e5e7eb',
+                padding: '20px 30px',
+                backgroundColor: '#f8fafc',
+                borderBottomLeftRadius: '15px',
+                borderBottomRightRadius: '15px'
+              }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowActivationModal(false)}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    backgroundColor: '#10b981',
+                    border: 'none'
+                  }}
+                >
+                  <i className="fa fa-check" style={{marginRight: '5px'}}></i>
+                  Entendido
+                </button>
               </div>
             </div>
           </div>
         </div>
-        <div className="copy-right_text">
-          <div className="container">
-            <div className="footer_border"></div>
-            <div className="row">
-              <div className="col-xl-12">
-                <p className="copy_right text-center">
-                  © 2024 HCEN. Todos los derechos reservados.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      )}
     </>
   );
 };
 
-export default HistoriaClinica;
+export default GestionClinicas;

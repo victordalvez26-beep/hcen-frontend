@@ -5,9 +5,9 @@ const GestionClinicas = () => {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     nombre: '',
-    contacto: '', // Email de contacto del administrador
+    contacto: '' // Email de contacto del administrador
     // Los demás datos (RUT, dirección, etc.) los ingresa la clínica al activarse
-    estado: 'PENDIENTE_ACTIVACION'
+    // El estado se establece automáticamente en el backend como PENDIENTE
   });
 
   const [editingRUT, setEditingRUT] = useState(null);
@@ -60,15 +60,45 @@ const GestionClinicas = () => {
         }
       });
 
+      // Leer el cuerpo de la respuesta una sola vez
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch (e) {
+        throw new Error(`Error leyendo respuesta: ${e.message}`);
+      }
+
       if (response.ok) {
-        const data = await response.json();
-        setNodos(data);
+        if (isJson && responseBody) {
+          try {
+            const data = JSON.parse(responseBody);
+            setNodos(data);
+          } catch (e) {
+            throw new Error(`Error parseando JSON: ${e.message}`);
+          }
+        } else {
+          throw new Error('Respuesta no es JSON válido');
+        }
       } else {
-        showMessage('Error cargando clínicas', 'error');
+        let errorMessage = `Error HTTP ${response.status}`;
+        if (isJson && responseBody) {
+          try {
+            const errorJson = JSON.parse(responseBody);
+            errorMessage += ': ' + (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          } catch (e) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+        } else if (responseBody) {
+          errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+        }
+        showMessage(errorMessage, 'error');
       }
     } catch (error) {
       console.error('Error cargando nodos:', error);
-      showMessage('Error de conexión al cargar nodos', 'error');
+      showMessage(`Error de conexión: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -100,12 +130,34 @@ const GestionClinicas = () => {
           body: JSON.stringify(formData)
         });
 
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
+          return;
+        }
+
         if (response.ok) {
           showMessage('Nodo periférico actualizado exitosamente', 'success');
           loadNodos();
         } else {
-          const errorText = await response.text();
-          showMessage('Error actualizando nodo: ' + errorText, 'error');
+          let errorMessage = `Error HTTP ${response.status}`;
+          if (isJson && responseBody) {
+            try {
+              const errorJson = JSON.parse(responseBody);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+            } catch (e) {
+              errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+            }
+          } else if (responseBody) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+          showMessage('Error actualizando nodo: ' + errorMessage, 'error');
           return;
         }
       } else {
@@ -117,6 +169,18 @@ const GestionClinicas = () => {
           },
           body: JSON.stringify(formData)
         });
+
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
+          return;
+        }
 
         if (response.ok) {
           const createdNodo = await response.json();
@@ -160,8 +224,8 @@ const GestionClinicas = () => {
       url: nodo.url || '',
       nodoPerifericoUrlBase: nodo.nodoPerifericoUrlBase || '',
       nodoPerifericoUsuario: nodo.nodoPerifericoUsuario || '',
-      nodoPerifericoPassword: nodo.nodoPerifericoPassword || '',
-      estado: nodo.estado || 'ACTIVO'
+      nodoPerifericoPassword: nodo.nodoPerifericoPassword || ''
+      // No enviar estado al editar, el backend lo maneja
     });
     setEditingRUT(nodo.rut);
     setShowForm(true);
@@ -193,8 +257,8 @@ const GestionClinicas = () => {
   const resetForm = () => {
     setFormData({
       nombre: '',
-      contacto: '',
-      estado: 'PENDIENTE_ACTIVACION'
+      contacto: ''
+      // El estado se establece automáticamente en el backend
     });
     setEditingRUT(null);
     setShowForm(false);
@@ -212,6 +276,7 @@ const GestionClinicas = () => {
       case 'MANTENIMIENTO': return '#f59e0b';
       case 'ERROR_MENSAJERIA': return '#ef4444';
       case 'PENDIENTE': return '#3b82f6';
+      case 'PENDIENTE_ACTIVACION': return '#3b82f6'; // Compatibilidad con datos antiguos
       default: return '#6b7280';
     }
   };
