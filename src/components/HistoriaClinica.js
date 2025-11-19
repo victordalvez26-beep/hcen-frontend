@@ -14,6 +14,10 @@ const HistoriaClinica = () => {
     institucion: 'todos',
     profesional: 'todos'
   });
+  const [showResumenModal, setShowResumenModal] = useState(false);
+  const [resumen, setResumen] = useState(null);
+  const [loadingResumen, setLoadingResumen] = useState(false);
+  const [solicitandoAcceso, setSolicitandoAcceso] = useState({});
 
   useEffect(() => {
     checkSession();
@@ -120,6 +124,119 @@ const HistoriaClinica = () => {
     window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
   };
 
+  const generarResumenHistoriaClinica = async () => {
+    if (!user || !user.codDocum) {
+      setError('No se puede generar el resumen: CI del paciente no disponible');
+      return;
+    }
+
+    setLoadingResumen(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/paciente/${user.codDocum}/resumen`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setResumen(data);
+        setShowResumenModal(true);
+      } else if (response.status === 403) {
+        setError('No tiene permisos para generar el resumen de la historia clínica');
+      } else if (response.status === 404) {
+        setError('No se encontraron documentos para generar el resumen');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Error al generar el resumen');
+      }
+    } catch (error) {
+      console.error('Error generando resumen:', error);
+      setError('Error de conexión al generar el resumen');
+    } finally {
+      setLoadingResumen(false);
+    }
+  };
+
+  const solicitarAcceso = async (documento) => {
+    if (!user || !user.uid) {
+      setError('No se puede solicitar acceso: usuario no identificado');
+      return;
+    }
+
+    setSolicitandoAcceso(prev => ({ ...prev, [documento.id]: true }));
+
+    try {
+      // Usar el endpoint del backend principal
+      const response = await fetch(`${config.BACKEND_URL}/api/metadatos-documento/solicitar-acceso`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          documentoId: documento.id,
+          pacienteCI: documento.codDocum || user.codDocum,
+          motivo: 'Acceso necesario para atención médica'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert('Solicitud de acceso enviada exitosamente. Se le notificará cuando sea aprobada.');
+        // Recargar documentos para actualizar permisos
+        loadDocumentosPorUsuario();
+      } else {
+        const errorData = await response.json();
+        alert('Error al solicitar acceso: ' + (errorData.error || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('Error solicitando acceso:', error);
+      alert('Error de conexión al solicitar acceso');
+    } finally {
+      setSolicitandoAcceso(prev => ({ ...prev, [documento.id]: false }));
+    }
+  };
+
+  const descargarDocumento = async (documento) => {
+    if (!documento.id) {
+      alert('Error: ID del documento no disponible');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${config.BACKEND_URL}/api/metadatos-documento/${documento.id}/descargar`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${documento.categoria || 'documento'}-${documento.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else if (response.status === 403) {
+        alert('No tiene permisos para descargar este documento. Puede solicitar acceso.');
+      } else if (response.status === 404) {
+        alert('Documento no encontrado');
+      } else {
+        alert('Error al descargar el documento');
+      }
+    } catch (error) {
+      console.error('Error descargando documento:', error);
+      alert('Error de conexión al descargar el documento');
+    }
+  };
+
   const handleFiltroChange = (campo, valor) => {
     setFiltros(prev => ({
       ...prev,
@@ -215,11 +332,51 @@ const HistoriaClinica = () => {
                 <p style={{
                   color: '#e2e8f0',
                   fontSize: '18px',
-                  marginBottom: '0',
+                  marginBottom: '20px',
                   fontWeight: '400'
                 }}>
                   Bienvenido, <strong style={{color: '#ffffff'}}>{user.nombre || 'Usuario'}</strong>
                 </p>
+                <button
+                  onClick={generarResumenHistoriaClinica}
+                  disabled={loadingResumen}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: loadingResumen ? '#9ca3af' : '#10b981',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: loadingResumen ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.3s ease',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loadingResumen) {
+                      e.target.style.backgroundColor = '#059669';
+                      e.target.style.transform = 'translateY(-2px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!loadingResumen) {
+                      e.target.style.backgroundColor = '#10b981';
+                      e.target.style.transform = 'translateY(0)';
+                    }
+                  }}
+                >
+                  {loadingResumen ? (
+                    <>
+                      <i className="flaticon-loading" style={{marginRight: '8px'}}></i>
+                      Generando resumen...
+                    </>
+                  ) : (
+                    <>
+                      <i className="flaticon-file" style={{marginRight: '8px'}}></i>
+                      Generar Resumen de Historia Clínica
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -578,7 +735,7 @@ const HistoriaClinica = () => {
                               <i className="flaticon-calendar" style={{marginRight: '6px', color: '#3b82f6'}}></i>
                               {documento.fecha}
                             </div>
-                            <div style={{display: 'flex', gap: '10px'}}>
+                            <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
                               <a 
                                 href="#" 
                                 className="boxed-btn3" 
@@ -592,7 +749,8 @@ const HistoriaClinica = () => {
                                   fontWeight: '600',
                                   transition: 'all 0.3s ease',
                                   border: 'none',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
+                                  display: 'inline-block'
                                 }}
                                 onMouseEnter={(e) => {
                                   e.target.style.backgroundColor = '#1d4ed8';
@@ -610,15 +768,13 @@ const HistoriaClinica = () => {
                                 <i className="flaticon-eye" style={{marginRight: '4px'}}></i>
                                 Ver Detalle
                               </a>
-                              {documento.id && documento.uriDocumento && documento.uriDocumento.includes('localhost:8081') ? (
-                                <a
-                                  href={`${config.BACKEND_URL}/api/metadatos-documento/${documento.id}/descargar`}
-                                  download={`${documento.categoria || 'documento'}-${documento.id}.pdf`}
+                              {documento.accesoPermitido !== false ? (
+                                <button
+                                  onClick={() => descargarDocumento(documento)}
                                   className="boxed-btn3" 
                                   style={{
                                     padding: '8px 20px',
                                     fontSize: '13px',
-                                    textDecoration: 'none',
                                     backgroundColor: '#10b981',
                                     color: '#ffffff',
                                     borderRadius: '6px',
@@ -639,26 +795,40 @@ const HistoriaClinica = () => {
                                 >
                                   <i className="flaticon-download" style={{marginRight: '4px'}}></i>
                                   Descargar PDF
-                                </a>
+                                </button>
                               ) : (
-                                <span
+                                <button
+                                  onClick={() => solicitarAcceso(documento)}
+                                  disabled={solicitandoAcceso[documento.id]}
                                   className="boxed-btn3" 
                                   style={{
                                     padding: '8px 20px',
                                     fontSize: '13px',
-                                    backgroundColor: '#9ca3af',
+                                    backgroundColor: solicitandoAcceso[documento.id] ? '#9ca3af' : '#f59e0b',
                                     color: '#ffffff',
                                     borderRadius: '6px',
                                     fontWeight: '600',
-                                    cursor: 'not-allowed',
-                                    display: 'inline-block',
-                                    opacity: 0.6
+                                    transition: 'all 0.3s ease',
+                                    border: 'none',
+                                    cursor: solicitandoAcceso[documento.id] ? 'not-allowed' : 'pointer',
+                                    display: 'inline-block'
                                   }}
-                                  title="Documento no disponible para descarga"
+                                  onMouseEnter={(e) => {
+                                    if (!solicitandoAcceso[documento.id]) {
+                                      e.target.style.backgroundColor = '#d97706';
+                                      e.target.style.transform = 'translateY(-2px)';
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (!solicitandoAcceso[documento.id]) {
+                                      e.target.style.backgroundColor = '#f59e0b';
+                                      e.target.style.transform = 'translateY(0)';
+                                    }
+                                  }}
                                 >
-                                  <i className="flaticon-download" style={{marginRight: '4px'}}></i>
-                                  No disponible
-                                </span>
+                                  <i className="flaticon-lock" style={{marginRight: '4px'}}></i>
+                                  {solicitandoAcceso[documento.id] ? 'Solicitando...' : 'Solicitar Acceso'}
+                                </button>
                               )}
                             </div>
                           </div>
@@ -730,6 +900,145 @@ const HistoriaClinica = () => {
           </div>
         </div>
       </footer>
+
+      {/* Modal de Resumen */}
+      {showResumenModal && resumen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          padding: '20px'
+        }} onClick={() => setShowResumenModal(false)}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '15px',
+            width: '90%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '24px',
+              borderBottom: '1px solid #e2e8f0'
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#1f2b7b'
+              }}>
+                <i className="flaticon-file" style={{marginRight: '8px'}}></i>
+                Resumen de Historia Clínica
+              </h3>
+              <button
+                onClick={() => setShowResumenModal(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  padding: '0',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#f1f5f9';
+                  e.target.style.color = '#1f2b7b';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                  e.target.style.color = '#64748b';
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{
+              padding: '24px'
+            }}>
+              <div style={{
+                backgroundColor: '#f8fafc',
+                padding: '16px',
+                borderRadius: '8px',
+                marginBottom: '20px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <p style={{
+                  margin: 0,
+                  fontSize: '14px',
+                  color: '#64748b'
+                }}>
+                  <strong>Paciente:</strong> {resumen.paciente || user.codDocum}
+                </p>
+                <p style={{
+                  margin: '8px 0 0 0',
+                  fontSize: '14px',
+                  color: '#64748b'
+                }}>
+                  <strong>Documentos procesados:</strong> {resumen.documentosProcesados || 0}
+                </p>
+              </div>
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '20px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.6',
+                fontSize: '15px',
+                color: '#2d3748'
+              }}>
+                {resumen.resumen || 'No se pudo generar el resumen'}
+              </div>
+            </div>
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => setShowResumenModal(false)}
+                style={{
+                  padding: '10px 24px',
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#1d4ed8';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#3b82f6';
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

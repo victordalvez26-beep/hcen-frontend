@@ -35,15 +35,45 @@ const GestionClinicas = () => {
         }
       });
 
+      // Leer el cuerpo de la respuesta una sola vez
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch (e) {
+        throw new Error(`Error leyendo respuesta: ${e.message}`);
+      }
+
       if (response.ok) {
-        const data = await response.json();
-        setNodos(data);
+        if (isJson && responseBody) {
+          try {
+            const data = JSON.parse(responseBody);
+            setNodos(data);
+          } catch (e) {
+            throw new Error(`Error parseando JSON: ${e.message}`);
+          }
+        } else {
+          throw new Error('Respuesta no es JSON válido');
+        }
       } else {
-        showMessage('Error cargando clínicas', 'error');
+        let errorMessage = `Error HTTP ${response.status}`;
+        if (isJson && responseBody) {
+          try {
+            const errorJson = JSON.parse(responseBody);
+            errorMessage += ': ' + (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          } catch (e) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+        } else if (responseBody) {
+          errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+        }
+        showMessage(errorMessage, 'error');
       }
     } catch (error) {
       console.error('Error cargando nodos:', error);
-      showMessage('Error de conexión al cargar nodos', 'error');
+      showMessage(`Error de conexión: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -90,12 +120,34 @@ const GestionClinicas = () => {
           body: JSON.stringify(formData)
         });
 
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
+          return;
+        }
+
         if (response.ok) {
           showMessage('Nodo periférico actualizado exitosamente', 'success');
           loadNodos();
         } else {
-          const errorText = await response.text();
-          showMessage('Error actualizando nodo: ' + errorText, 'error');
+          let errorMessage = `Error HTTP ${response.status}`;
+          if (isJson && responseBody) {
+            try {
+              const errorJson = JSON.parse(responseBody);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+            } catch (e) {
+              errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+            }
+          } else if (responseBody) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+          showMessage('Error actualizando nodo: ' + errorMessage, 'error');
           return;
         }
       } else {
@@ -108,17 +160,49 @@ const GestionClinicas = () => {
           body: JSON.stringify(formData)
         });
 
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
+          return;
+        }
+
         if (response.ok) {
-          const createdNodo = await response.json();
-          showMessage(
-            `✅ Invitación enviada a ${formData.contacto}. ` +
-            `El administrador recibirá un email para completar el registro de la clínica.`,
-            'success'
-          );
-          loadNodos(); // Recargar la lista para mostrar la clínica con estado PENDIENTE
+          if (isJson && responseBody) {
+            try {
+              const createdNodo = JSON.parse(responseBody);
+              showMessage(
+                `✅ Invitación enviada a ${formData.contacto}. ` +
+                `El administrador recibirá un email para completar el registro de la clínica.`,
+                'success'
+              );
+              loadNodos(); // Recargar la lista para mostrar la clínica con estado PENDIENTE
+            } catch (e) {
+              showMessage(`Error parseando respuesta: ${e.message}`, 'error');
+              return;
+            }
+          } else {
+            showMessage('Respuesta inválida del servidor', 'error');
+            return;
+          }
         } else {
-          const errorText = await response.text();
-          showMessage('Error creando nodo: ' + errorText, 'error');
+          let errorMessage = `Error HTTP ${response.status}`;
+          if (isJson && responseBody) {
+            try {
+              const errorJson = JSON.parse(responseBody);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+            } catch (e) {
+              errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+            }
+          } else if (responseBody) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+          showMessage('Error creando nodo: ' + errorMessage, 'error');
           return;
         }
       }
@@ -177,23 +261,42 @@ const GestionClinicas = () => {
           }
         });
         
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          console.error('Error leyendo respuesta en polling:', e);
+          return; // Continuar polling en el siguiente intento
+        }
+
         if (response.ok) {
-          const nodo = await response.json();
-          console.log(`Polling estado for ${rut}: ${nodo.estado} (intento ${intentos + 1}/${maxIntentos})`);
-          
-          if (nodo.estado === 'ACTIVO') {
-            clearInterval(interval);
-            
-            // Mostrar información de activación
-            const activationInfo = buildActivationMessage(nodo);
-            showMessage(activationInfo, 'success');
-            loadNodos();
-          } else if (nodo.estado === 'ERROR_MENSAJERIA') {
-            clearInterval(interval);
-            showMessage('Error al activar clínica. El tenant no pudo inicializarse. Verifique la configuración.', 'error');
-            loadNodos();
+          if (isJson && responseBody) {
+            try {
+              const nodo = JSON.parse(responseBody);
+              console.log(`Polling estado for ${rut}: ${nodo.estado} (intento ${intentos + 1}/${maxIntentos})`);
+              
+              if (nodo.estado === 'ACTIVO') {
+                clearInterval(interval);
+                
+                // Mostrar información de activación
+                const activationInfo = buildActivationMessage(nodo);
+                showMessage(activationInfo, 'success');
+                loadNodos();
+              } else if (nodo.estado === 'ERROR_MENSAJERIA') {
+                clearInterval(interval);
+                showMessage('Error al activar clínica. El tenant no pudo inicializarse. Verifique la configuración.', 'error');
+                loadNodos();
+              }
+              // Si sigue en PENDIENTE, continuar polling
+            } catch (e) {
+              console.error('Error parseando JSON en polling:', e);
+              // Continuar polling en el siguiente intento
+            }
           }
-          // Si sigue en PENDIENTE, continuar polling
         }
         
         intentos++;

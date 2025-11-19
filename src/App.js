@@ -7,7 +7,11 @@ import CompleteProfile from './components/CompleteProfile';
 import GestionClinicas from './components/GestionClinicas';
 import GestionUsuarios from './components/GestionUsuarios';
 import GestionPrestadores from './components/GestionPrestadores';
+import GestionPoliticas from './components/GestionPoliticas';
+import MiPerfil from './components/MiPerfil';
+import ReportesAdmin from './components/ReportesAdmin';
 import RegistroPrestador from './components/RegistroPrestador';
+import Contacto from './components/Contacto';
 import Header from './components/Header';
 import './App.css';
 import './styles/colors.css';
@@ -72,6 +76,10 @@ function AppContent() {
     if (location.pathname.startsWith('/documento/')) return 'historia';
     if (location.pathname === '/gestion-clinicas') return 'gestion-clinicas';
     if (location.pathname === '/gestion-usuarios') return 'gestion-usuarios';
+    if (location.pathname === '/gestion-politicas') return 'gestion-politicas';
+    if (location.pathname === '/reportes') return 'reportes';
+    if (location.pathname === '/mi-perfil') return 'mi-perfil';
+    if (location.pathname === '/contact') return 'contact';
     return '';
   };
 
@@ -160,6 +168,22 @@ function AppContent() {
             <GestionPrestadores />
           </AdminRoute>
         } />
+        <Route path="/gestion-politicas" element={
+          <AdminRoute>
+            <GestionPoliticas />
+          </AdminRoute>
+        } />
+        <Route path="/reportes" element={
+          <AdminRoute>
+            <ReportesAdmin />
+          </AdminRoute>
+        } />
+          <Route path="/mi-perfil" element={
+            <ProtectedRoute>
+              <MiPerfil />
+            </ProtectedRoute>
+          } />
+          <Route path="/contact" element={<Contacto />} />
         </Routes>
       </div>
     </div>
