@@ -3,11 +3,13 @@ import React, { useState, useEffect } from 'react';
 const MiPerfil = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState('informacion'); // 'informacion', 'politicas' o 'accesos'
+  const [activeSection, setActiveSection] = useState('informacion'); // 'informacion', 'politicas', 'accesos' o 'solicitudes'
   const [politicas, setPoliticas] = useState([]);
   const [accesosHistoria, setAccesosHistoria] = useState([]);
+  const [solicitudesAcceso, setSolicitudesAcceso] = useState([]);
   const [loadingPoliticas, setLoadingPoliticas] = useState(false);
   const [loadingAccesos, setLoadingAccesos] = useState(false);
+  const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState('');
@@ -50,8 +52,41 @@ const MiPerfil = () => {
       loadClinicas();
     } else if (activeSection === 'accesos' && user) {
       loadAccesosHistoria();
+    } else if (activeSection === 'solicitudes' && user) {
+      loadSolicitudesAcceso();
     }
   }, [activeSection, user]);
+
+  // Cargar solicitudes pendientes al iniciar para mostrar el contador en la pestaña
+  useEffect(() => {
+    if (user && activeSection !== 'solicitudes') {
+      // Solo cargar si no estamos en la sección de solicitudes (para evitar duplicados)
+      const userDocumento = user?.codDocum || user?.documento;
+      let documentoPaciente = userDocumento;
+      if (!documentoPaciente && user?.uid) {
+        const match = user.uid.match(/uy-ci-(\d+)/);
+        if (match && match[1]) {
+          documentoPaciente = match[1];
+        }
+      }
+      
+      if (documentoPaciente) {
+        fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(response => response.ok ? response.json() : [])
+        .then(data => setSolicitudesAcceso(data || []))
+        .catch(error => {
+          console.error('Error cargando contador de solicitudes:', error);
+          setSolicitudesAcceso([]);
+        });
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     // Intentar obtener el documento del paciente
@@ -81,7 +116,7 @@ const MiPerfil = () => {
   const loadAccesosHistoria = async () => {
     try {
       setLoadingAccesos(true);
-      // Obtener políticas del paciente actual usando el endpoint específico del backend
+      // Obtener registros de acceso del paciente actual
       const userDocumento = user?.codDocum || user?.documento;
       
       if (!userDocumento) {
@@ -90,8 +125,8 @@ const MiPerfil = () => {
         return;
       }
 
-      // Usar el endpoint específico del backend para obtener políticas por paciente
-      const response = await fetch(`http://localhost:8080/api/documentos/politicas/paciente/${userDocumento}`, {
+      // Usar el endpoint del servicio de políticas para obtener registros de acceso por paciente
+      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/registros/paciente/${userDocumento}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -101,15 +136,15 @@ const MiPerfil = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // Filtrar solo políticas que son para acceso a historia clínica (todos los documentos o por tipo)
-        const accesos = data.filter(p => 
-          p.alcance === 'TODOS_LOS_DOCUMENTOS' || 
-          p.alcance === 'DOCUMENTOS_POR_TIPO' ||
-          p.alcance === 'UN_DOCUMENTO_ESPECIFICO'
-        );
-        setAccesosHistoria(accesos);
+        // Ordenar por fecha descendente (más recientes primero)
+        const accesosOrdenados = Array.isArray(data) ? data.sort((a, b) => {
+          const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
+          const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
+          return fechaB - fechaA;
+        }) : [];
+        setAccesosHistoria(accesosOrdenados);
       } else {
-        console.error('Error cargando accesos');
+        console.error('Error cargando accesos:', response.status, response.statusText);
         setAccesosHistoria([]);
       }
     } catch (error) {
@@ -118,6 +153,115 @@ const MiPerfil = () => {
     } finally {
       setLoadingAccesos(false);
     }
+  };
+
+  const loadSolicitudesAcceso = async () => {
+    try {
+      setLoadingSolicitudes(true);
+      const userDocumento = user?.codDocum || user?.documento;
+      
+      // Si no hay codDocum, intentar extraerlo del UID (formato: uy-ci-XXXXXXXX)
+      let documentoPaciente = userDocumento;
+      if (!documentoPaciente && user?.uid) {
+        const match = user.uid.match(/uy-ci-(\d+)/);
+        if (match && match[1]) {
+          documentoPaciente = match[1];
+        }
+      }
+      
+      if (!documentoPaciente) {
+        setSolicitudesAcceso([]);
+        setLoadingSolicitudes(false);
+        return;
+      }
+
+      // Obtener solicitudes pendientes del paciente
+      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSolicitudesAcceso(data || []);
+      } else {
+        console.error('Error cargando solicitudes de acceso');
+        setSolicitudesAcceso([]);
+      }
+    } catch (error) {
+      console.error('Error cargando solicitudes de acceso:', error);
+      setSolicitudesAcceso([]);
+    } finally {
+      setLoadingSolicitudes(false);
+    }
+  };
+
+  const handleAprobarSolicitud = async (solicitudId) => {
+    try {
+      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/${solicitudId}/aprobar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          resueltoPor: user?.uid || user?.email || 'Paciente',
+          comentario: 'Solicitud aprobada por el paciente'
+        })
+      });
+
+      if (response.ok) {
+        setMessage('Solicitud aprobada exitosamente');
+        loadSolicitudesAcceso();
+        // Recargar políticas también para reflejar el nuevo acceso
+        if (activeSection === 'politicas') {
+          loadPoliticas();
+        }
+      } else {
+        const errorData = await response.json();
+        setMessage('Error al aprobar solicitud: ' + (errorData.error || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('Error aprobando solicitud:', error);
+      setMessage('Error de conexión al aprobar solicitud');
+    }
+    setTimeout(() => setMessage(''), 5000);
+  };
+
+  const handleRechazarSolicitud = async (solicitudId) => {
+    const comentario = window.prompt('Ingrese un motivo para rechazar la solicitud (opcional):');
+    if (comentario === null) {
+      return; // Usuario canceló
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/${solicitudId}/rechazar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          resueltoPor: user?.uid || user?.email || 'Paciente',
+          comentario: comentario || 'Solicitud rechazada por el paciente'
+        })
+      });
+
+      if (response.ok) {
+        setMessage('Solicitud rechazada exitosamente');
+        loadSolicitudesAcceso();
+      } else {
+        const errorData = await response.json();
+        setMessage('Error al rechazar solicitud: ' + (errorData.error || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('Error rechazando solicitud:', error);
+      setMessage('Error de conexión al rechazar solicitud');
+    }
+    setTimeout(() => setMessage(''), 5000);
   };
 
   const loadProfesionales = async () => {
@@ -632,8 +776,8 @@ const MiPerfil = () => {
                   fontWeight: activeSection === 'accesos' ? '600' : '500',
                   fontSize: windowWidth < 768 ? '14px' : '16px',
                   cursor: 'pointer',
-                  borderTopLeftRadius: windowWidth >= 768 ? '0' : '15px',
-                  borderTopRightRadius: '15px',
+                  borderTopLeftRadius: '0',
+                  borderTopRightRadius: '0',
                   transition: 'all 0.3s ease',
                   borderBottom: activeSection === 'accesos' ? '3px solid #3b82f6' : '3px solid transparent',
                   marginBottom: activeSection === 'accesos' ? '-2px' : '0',
@@ -649,6 +793,50 @@ const MiPerfil = () => {
                 <i className="fa fa-file-medical" style={{flexShrink: 0}}></i>
                 <span style={{overflow: 'hidden', textOverflow: 'ellipsis'}}>
                   {windowWidth < 576 ? 'Accesos' : windowWidth < 768 ? 'Historia Clínica' : 'Accesos a Historia Clínica'}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveSection('solicitudes')}
+                style={{
+                  flex: '1 1 auto',
+                  minWidth: windowWidth < 576 ? '100px' : '150px',
+                  padding: windowWidth < 768 ? '15px 10px' : '20px 30px',
+                  border: 'none',
+                  backgroundColor: activeSection === 'solicitudes' ? '#ffffff' : 'transparent',
+                  color: activeSection === 'solicitudes' ? '#3b82f6' : '#6b7280',
+                  fontWeight: activeSection === 'solicitudes' ? '600' : '500',
+                  fontSize: windowWidth < 768 ? '14px' : '16px',
+                  cursor: 'pointer',
+                  borderTopLeftRadius: windowWidth >= 768 ? '0' : '15px',
+                  borderTopRightRadius: '15px',
+                  transition: 'all 0.3s ease',
+                  borderBottom: activeSection === 'solicitudes' ? '3px solid #3b82f6' : '3px solid transparent',
+                  marginBottom: activeSection === 'solicitudes' ? '-2px' : '0',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <i className="fa fa-bell" style={{flexShrink: 0}}></i>
+                <span style={{overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                  {windowWidth < 576 ? 'Solicitudes' : 'Solicitudes de Acceso'}
+                  {solicitudesAcceso.length > 0 && (
+                    <span style={{
+                      marginLeft: '8px',
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      borderRadius: '50%',
+                      padding: '2px 6px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      {solicitudesAcceso.length}
+                    </span>
+                  )}
                 </span>
               </button>
             </div>
@@ -1085,55 +1273,198 @@ const MiPerfil = () => {
                         }}>
                           <thead>
                             <tr style={{backgroundColor: '#f8fafc'}}>
-                              <th style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#374151', fontWeight: '600'}}>ID</th>
-                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Autorizado</th>
-                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Alcance</th>
-                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Duración</th>
-                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Gestión</th>
-                              <th style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', color: '#374151', fontWeight: '600'}}>Tipo Documento</th>
+                              <th style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#374151', fontWeight: '600'}}>Fecha</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Profesional</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Tipo Documento</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Documento ID</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Estado</th>
+                              <th style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', color: '#374151', fontWeight: '600'}}>Referencia</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {accesosHistoria.map(acceso => (
-                              <tr key={acceso.id} style={{
-                                backgroundColor: '#ffffff',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                                transition: 'all 0.2s ease',
-                                verticalAlign: 'middle'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-                              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'}
-                              >
-                                <td style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#6b7280', fontFamily: 'monospace'}}>
-                                  #{acceso.id}
+                            {accesosHistoria.map(acceso => {
+                              const fecha = acceso.fecha ? new Date(acceso.fecha) : null;
+                              const fechaFormateada = fecha ? fecha.toLocaleString('es-UY', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A';
+                              
+                              return (
+                                <tr key={acceso.id} style={{
+                                  backgroundColor: '#ffffff',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.2s ease',
+                                  verticalAlign: 'middle'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+                                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'}
+                                >
+                                  <td style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#6b7280', fontSize: '13px'}}>
+                                    {fechaFormateada}
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151'}}>
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                      <span className="badge" style={{
+                                        backgroundColor: '#8b5cf6',
+                                        color: '#ffffff',
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        fontWeight: '600',
+                                        fontSize: '12px'
+                                      }}>
+                                        <i className="fa fa-user-md" style={{marginRight: '5px'}}></i>
+                                        {acceso.profesionalId || 'N/A'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace', fontSize: '13px'}}>
+                                    {acceso.tipoDocumento || '-'}
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#6b7280', fontFamily: 'monospace', fontSize: '12px'}}>
+                                    {acceso.documentoId ? (acceso.documentoId.length > 20 ? acceso.documentoId.substring(0, 20) + '...' : acceso.documentoId) : '-'}
+                                  </td>
+                                  <td style={{padding: '15px 20px'}}>
+                                    {acceso.exito ? (
+                                      <span className="badge" style={{
+                                        backgroundColor: '#10b981',
+                                        color: '#ffffff',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        fontWeight: '600',
+                                        fontSize: '13px'
+                                      }}>
+                                        <i className="fa fa-check-circle" style={{marginRight: '5px'}}></i>
+                                        Permitido
+                                      </span>
+                                    ) : (
+                                      <div>
+                                        <span className="badge" style={{
+                                          backgroundColor: '#ef4444',
+                                          color: '#ffffff',
+                                          padding: '8px 12px',
+                                          borderRadius: '6px',
+                                          fontWeight: '600',
+                                          fontSize: '13px',
+                                          marginBottom: '5px',
+                                          display: 'inline-block'
+                                        }}>
+                                          <i className="fa fa-times-circle" style={{marginRight: '5px'}}></i>
+                                          Denegado
+                                        </span>
+                                        {acceso.motivoRechazo && (
+                                          <div style={{fontSize: '12px', color: '#ef4444', marginTop: '5px'}}>
+                                            {acceso.motivoRechazo}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', color: '#6b7280', fontSize: '12px'}}>
+                                    {acceso.referencia || '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {accesosHistoria.length === 0 && (
+                              <tr>
+                                <td colSpan="6" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
+                                  <i className="fa fa-file-medical" style={{fontSize: '48px', marginBottom: '15px', opacity: '0.3'}}></i>
+                                  <div style={{fontSize: '18px', fontWeight: '500'}}>No se encontraron accesos</div>
+                                  <div style={{fontSize: '14px', marginTop: '5px'}}>
+                                    No hay registros de acceso a tu historia clínica
+                                  </div>
                                 </td>
-                                <td style={{padding: '15px 20px', color: '#374151'}}>
-                                  {acceso.profesionalAutorizado === 'CUALQUIER_PROFESIONAL' ? (
-                                    <span className="badge" style={{
-                                      backgroundColor: '#10b981',
-                                      color: '#ffffff',
-                                      padding: '8px 12px',
-                                      borderRadius: '6px',
-                                      fontWeight: '600',
-                                      fontSize: '13px'
-                                    }}>
-                                      <i className="fa fa-users" style={{marginRight: '5px'}}></i>
-                                      Cualquier Profesional
-                                    </span>
-                                  ) : acceso.profesionalAutorizado === 'CLINICA_AUTORIZADA' ? (
-                                    <span className="badge" style={{
-                                      backgroundColor: '#3b82f6',
-                                      color: '#ffffff',
-                                      padding: '8px 12px',
-                                      borderRadius: '6px',
-                                      fontWeight: '600',
-                                      fontSize: '13px'
-                                    }}>
-                                      <i className="fa fa-hospital" style={{marginRight: '5px'}}></i>
-                                      Clínica Autorizada
-                                      {acceso.clinicaAutorizada && ` (ID: ${acceso.clinicaAutorizada})`}
-                                    </span>
-                                  ) : (
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeSection === 'solicitudes' && (
+          <>
+            <div className="row">
+              <div className="col-xl-12">
+                <h5 style={{
+                  color: '#1f2937',
+                  fontSize: '20px',
+                  fontWeight: '600',
+                  marginBottom: '30px'
+                }}>
+                  <i className="fa fa-bell" style={{marginRight: '10px', color: '#3b82f6'}}></i>
+                  Solicitudes de Acceso Pendientes ({solicitudesAcceso.length})
+                </h5>
+
+                {loadingSolicitudes ? (
+                  <div className="card" style={{
+                    borderRadius: '15px',
+                    boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+                    border: '1px solid var(--border-color)',
+                    padding: '60px',
+                    textAlign: 'center'
+                  }}>
+                    <div className="spinner-border text-primary" role="status" style={{width: '3rem', height: '3rem'}}>
+                      <span className="sr-only">Cargando...</span>
+                    </div>
+                    <p className="mt-3" style={{color: '#6b7280'}}>Cargando solicitudes...</p>
+                  </div>
+                ) : (
+                  <div className="card" style={{
+                    borderRadius: '15px',
+                    boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    <div className="card-body" style={{padding: '30px'}}>
+                      {solicitudesAcceso.length === 0 ? (
+                        <div className="text-center" style={{padding: '40px', color: '#6b7280'}}>
+                          <i className="fa fa-check-circle" style={{fontSize: '48px', marginBottom: '15px', opacity: '0.3', color: '#10b981'}}></i>
+                          <div style={{fontSize: '18px', fontWeight: '500'}}>No hay solicitudes pendientes</div>
+                          <div style={{fontSize: '14px', marginTop: '5px'}}>
+                            No tienes solicitudes de acceso pendientes de revisión
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="table-responsive">
+                          <table className="table table-hover" style={{
+                            width: '100%',
+                            borderCollapse: 'separate',
+                            borderSpacing: '0 10px'
+                          }}>
+                            <thead>
+                              <tr style={{backgroundColor: '#f8fafc'}}>
+                                <th style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#374151', fontWeight: '600'}}>ID</th>
+                                <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Profesional Solicitante</th>
+                                <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Especialidad</th>
+                                <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Tipo Documento</th>
+                                <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Razón</th>
+                                <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Fecha</th>
+                                <th style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', color: '#374151', fontWeight: '600'}}>Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {solicitudesAcceso.map(solicitud => (
+                                <tr key={solicitud.id} style={{
+                                  backgroundColor: '#ffffff',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.2s ease',
+                                  verticalAlign: 'middle'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+                                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'}
+                                >
+                                  <td style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#6b7280', fontFamily: 'monospace'}}>
+                                    #{solicitud.id}
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151'}}>
                                     <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                                       <span className="badge" style={{
                                         backgroundColor: '#8b5cf6',
@@ -1147,48 +1478,121 @@ const MiPerfil = () => {
                                         Profesional
                                       </span>
                                       <span style={{fontFamily: 'monospace', fontSize: '14px'}}>
-                                        {acceso.profesionalAutorizado || 'N/A'}
+                                        {solicitud.solicitanteId || 'N/A'}
                                       </span>
                                     </div>
-                                  )}
-                                </td>
-                                <td style={{padding: '15px 20px'}}>
-                                  <span className="badge" style={{
-                                    padding: '8px 12px',
-                                    borderRadius: '5px',
-                                    fontWeight: '600',
-                                    fontSize: '12px',
-                                    backgroundColor: getAlcanceBadgeColor(acceso.alcance),
-                                    color: '#ffffff'
-                                  }}>
-                                    {getAlcanceLabel(acceso.alcance)}
-                                  </span>
-                                </td>
-                                <td style={{padding: '15px 20px', color: '#374151'}}>
-                                  {getDuracionLabel(acceso.duracion)}
-                                </td>
-                                <td style={{padding: '15px 20px', color: '#374151'}}>
-                                  {getGestionLabel(acceso.gestion)}
-                                </td>
-                                <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace', fontSize: '13px'}}>
-                                  {acceso.tipoDocumento || '-'}
-                                </td>
-                              </tr>
-                            ))}
-                            {accesosHistoria.length === 0 && (
-                              <tr>
-                                <td colSpan="6" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
-                                  <i className="fa fa-file-medical" style={{fontSize: '48px', marginBottom: '15px', opacity: '0.3'}}></i>
-                                  <div style={{fontSize: '18px', fontWeight: '500'}}>No se encontraron accesos</div>
-                                  <div style={{fontSize: '14px', marginTop: '5px'}}>
-                                    No hay accesos configurados a tu historia clínica
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151'}}>
+                                    {solicitud.especialidad || '-'}
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151'}}>
+                                    {solicitud.tipoDocumento ? (
+                                      <span className="badge" style={{
+                                        backgroundColor: '#3b82f6',
+                                        color: '#ffffff',
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px'
+                                      }}>
+                                        {solicitud.tipoDocumento}
+                                      </span>
+                                    ) : (
+                                      <span className="badge" style={{
+                                        backgroundColor: '#8b5cf6',
+                                        color: '#ffffff',
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px'
+                                      }}>
+                                        Todos los documentos
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151', maxWidth: '200px'}}>
+                                    <div style={{
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      fontSize: '14px'
+                                    }} title={solicitud.razonSolicitud || 'Sin razón especificada'}>
+                                      {solicitud.razonSolicitud || 'Sin razón especificada'}
+                                    </div>
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#6b7280', fontSize: '13px'}}>
+                                    {solicitud.fechaSolicitud ? new Date(solicitud.fechaSolicitud).toLocaleDateString('es-UY', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : '-'}
+                                  </td>
+                                  <td style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px'}}>
+                                    <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                                      <button
+                                        onClick={() => handleAprobarSolicitud(solicitud.id)}
+                                        style={{
+                                          backgroundColor: '#10b981',
+                                          color: '#ffffff',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          padding: '8px 16px',
+                                          fontSize: '14px',
+                                          fontWeight: '500',
+                                          transition: 'all 0.3s ease',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '5px'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.target.style.backgroundColor = '#059669';
+                                          e.target.style.transform = 'translateY(-1px)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.target.style.backgroundColor = '#10b981';
+                                          e.target.style.transform = 'translateY(0)';
+                                        }}
+                                      >
+                                        <i className="fa fa-check"></i>
+                                        Aprobar
+                                      </button>
+                                      <button
+                                        onClick={() => handleRechazarSolicitud(solicitud.id)}
+                                        style={{
+                                          backgroundColor: '#dc2626',
+                                          color: '#ffffff',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          padding: '8px 16px',
+                                          fontSize: '14px',
+                                          fontWeight: '500',
+                                          transition: 'all 0.3s ease',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '5px'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.target.style.backgroundColor = '#b91c1c';
+                                          e.target.style.transform = 'translateY(-1px)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.target.style.backgroundColor = '#dc2626';
+                                          e.target.style.transform = 'translateY(0)';
+                                        }}
+                                      >
+                                        <i className="fa fa-times"></i>
+                                        Rechazar
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

@@ -121,6 +121,11 @@ const GestionClinicas = () => {
     
     try {
       if (editingRUT) {
+        if (!editingRUT) {
+          showMessage('Error: No se puede identificar el nodo a editar', 'error');
+          return;
+        }
+
         const response = await fetch(`http://localhost:8080/api/nodos/${editingRUT}`, {
           method: 'PUT',
           credentials: 'include',
@@ -214,6 +219,11 @@ const GestionClinicas = () => {
   };
 
   const handleEdit = (nodo) => {
+    if (!nodo) {
+      showMessage('Error: Nodo no válido', 'error');
+      return;
+    }
+
     setFormData({
       nombre: nodo.nombre || '',
       RUT: nodo.rut || '',
@@ -227,17 +237,28 @@ const GestionClinicas = () => {
       nodoPerifericoPassword: nodo.nodoPerifericoPassword || ''
       // No enviar estado al editar, el backend lo maneja
     });
-    setEditingRUT(nodo.rut);
+    setEditingRUT(nodo.rut || nodo.id);
     setShowForm(true);
   };
 
-  const handleDelete = async (rut) => {
+  const handleDelete = async (nodo) => {
+    if (!nodo) {
+      showMessage('Error: Nodo no válido', 'error');
+      return;
+    }
+
+    const identifier = nodo.rut || nodo.id;
+    if (!identifier) {
+      showMessage('Error: No se puede identificar el nodo a eliminar', 'error');
+      return;
+    }
+
     if (!window.confirm('¿Está seguro de que desea eliminar este nodo periférico?')) {
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
+      const response = await fetch(`http://localhost:8080/api/nodos/${identifier}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -509,68 +530,71 @@ const GestionClinicas = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {nodos.map(nodo => (
-                          <tr key={nodo.rut} style={{
-                            backgroundColor: '#ffffff',
-                            transition: 'all 0.2s ease'
-                          }}>
-                            <td style={{padding: '15px 20px'}}>
-                              <strong style={{color: '#1f2937'}}>{nodo.nombre}</strong>
-                            </td>
-                            <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace'}}>{nodo.rut}</td>
-                            <td style={{padding: '15px 20px', color: '#374151'}}>
-                              {formatDepartamentoDisplay(nodo.departamento)}
-                              {nodo.localidad && <><br/><small style={{color: '#6b7280'}}>{nodo.localidad}</small></>}
-                            </td>
-                            <td style={{padding: '15px 20px', color: '#374151'}}>{nodo.contacto || '-'}</td>
-                            <td style={{padding: '15px 20px'}}>
-                              <span style={{
-                                padding: '6px 12px',
-                                borderRadius: '5px',
-                                fontWeight: '600',
-                                fontSize: '12px',
-                                backgroundColor: getEstadoBadgeColor(nodo.estado),
-                                color: '#ffffff'
-                              }}>
-                                {nodo.estado}
-                              </span>
-                            </td>
-                            <td style={{padding: '15px 20px'}}>
-                              <div style={{display: 'flex', gap: '8px'}}>
-                                <button
-                                  style={{
-                                    backgroundColor: '#3b82f6',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px 12px',
-                                    fontSize: '13px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                  }}
-                                  onClick={() => handleEdit(nodo)}
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  style={{
-                                    backgroundColor: '#ef4444',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px 12px',
-                                    fontSize: '13px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                  }}
-                                  onClick={() => handleDelete(nodo.rut)}
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {nodos.map((nodo, index) => {
+                          const uniqueKey = nodo.id || nodo.rut || `nodo-${index}`;
+                          return (
+                            <tr key={uniqueKey} style={{
+                              backgroundColor: '#ffffff',
+                              transition: 'all 0.2s ease'
+                            }}>
+                              <td style={{padding: '15px 20px'}}>
+                                <strong style={{color: '#1f2937'}}>{nodo.nombre}</strong>
+                              </td>
+                              <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace'}}>{nodo.rut || '-'}</td>
+                              <td style={{padding: '15px 20px', color: '#374151'}}>
+                                {formatDepartamentoDisplay(nodo.departamento)}
+                                {nodo.localidad && <><br/><small style={{color: '#6b7280'}}>{nodo.localidad}</small></>}
+                              </td>
+                              <td style={{padding: '15px 20px', color: '#374151'}}>{nodo.contacto || '-'}</td>
+                              <td style={{padding: '15px 20px'}}>
+                                <span style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '5px',
+                                  fontWeight: '600',
+                                  fontSize: '12px',
+                                  backgroundColor: getEstadoBadgeColor(nodo.estado),
+                                  color: '#ffffff'
+                                }}>
+                                  {nodo.estado || 'N/A'}
+                                </span>
+                              </td>
+                              <td style={{padding: '15px 20px'}}>
+                                <div style={{display: 'flex', gap: '8px'}}>
+                                  <button
+                                    style={{
+                                      backgroundColor: '#3b82f6',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      padding: '6px 12px',
+                                      fontSize: '13px',
+                                      fontWeight: '500',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => handleEdit(nodo)}
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    style={{
+                                      backgroundColor: '#ef4444',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      padding: '6px 12px',
+                                      fontSize: '13px',
+                                      fontWeight: '500',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => handleDelete(nodo)}
+                                  >
+                                    Eliminar
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
