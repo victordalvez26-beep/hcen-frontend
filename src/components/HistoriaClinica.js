@@ -1,91 +1,150 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import config from '../config';
 
 const HistoriaClinica = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [documentos, setDocumentos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [docsLoading, setDocsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [documentosClinicos, setDocumentosClinicos] = useState([]);
+  const [loadingDocumentos, setLoadingDocumentos] = useState(false);
+  const [error, setError] = useState(null);
+  const [filtros, setFiltros] = useState({
+    categoria: 'todos',
+    institucion: 'todos',
+    profesional: 'todos'
+  });
 
   useEffect(() => {
-    const bootstrap = async () => {
-      await fetchSession();
-      await loadDocumentos();
-      setLoading(false);
-    };
-    bootstrap();
+    checkSession();
   }, []);
 
-  const fetchSession = async () => {
+  useEffect(() => {
+    console.log('🔄 useEffect ejecutado. User:', user);
+    if (user && user.uid) {
+      console.log('📋 Usuario autenticado, cargando documentos');
+      loadDocumentosPorUsuario();
+    } else {
+      console.log('❌ Usuario no autenticado');
+      console.log('User:', user);
+    }
+  }, [user]);
+  
+  const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
       const data = await response.json();
-      setUser(data?.authenticated ? data : null);
-    } catch (err) {
-      console.error('Error verificando sesión', err);
+      
+      if (data.authenticated) {
+        console.log('👤 Datos del usuario recibidos:', data);
+        console.log('📋 Campo documento:', data.documento);
+        console.log('📋 Todos los campos del usuario:', Object.keys(data));
+        setUser(data);
+      } else {
+        console.log('❌ Sesión no válida, redirigiendo a login');
+        setUser(null);
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('Error verificando sesión:', error);
       setUser(null);
+      window.location.href = '/';
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadDocumentos = async () => {
-    setDocsLoading(true);
-    setError('');
+  const loadDocumentosPorUsuario = async () => {
+    setLoadingDocumentos(true);
+    setError(null);
+    console.log('🔍 Cargando documentos para usuario autenticado');
     try {
-      const response = await fetch('http://localhost:8080/api/metadatos-documento/usuario', {
+      const url = `${config.BACKEND_URL}/api/metadatos-documento/usuario`;
+      console.log('🌐 URL:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers);
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Error HTTP ${response.status}`);
+        throw new Error(`Error al cargar documentos: ${response.status}`);
       }
 
-      const data = await response.json();
-      setDocumentos(Array.isArray(data) ? data : []);
-      if (!Array.isArray(data) || data.length === 0) {
-        setSelectedDoc(null);
-      }
-    } catch (err) {
-      console.error('Error cargando documentos', err);
-      setError(err.message || 'No se pudo obtener la historia clínica');
-      setDocumentos([]);
+      const documentos = await response.json();
+      console.log('📄 Documentos recibidos del backend:', documentos);
+      console.log('🆔 IDs de documentos del backend:', documentos.map(doc => doc.id));
+      
+      // Mapear los documentos del backend al formato esperado por el frontend
+      const documentosMapeados = documentos.map((doc, index) => ({
+        id: doc.id || (index + 1),
+        fecha: doc.fechaCreacion || 'N/A',
+        institucion: doc.clinicaOrigen || 'Institución Desconocida',
+        categoria: doc.tipoDocumento || 'Sin Categoría',
+        profesional: doc.profesionalSalud || 'Profesional Desconocido',
+        descripcion: doc.descripcion || 'Sin descripción disponible',
+        formatoDocumento: doc.formatoDocumento,
+        uriDocumento: doc.uriDocumento,
+        accesoPermitido: doc.accesoPermitido !== false,
+        codDocum: doc.codDocum
+      }));
+
+      console.log('💾 Documentos mapeados guardados en estado:', documentosMapeados);
+      setDocumentosClinicos(documentosMapeados);
+    } catch (error) {
+      console.error('❌ Error cargando documentos:', error);
+      console.error('❌ Error details:', error.message);
+      setError('No se pudieron cargar los documentos clínicos. Por favor, intente más tarde.');
+      setDocumentosClinicos([]);
     } finally {
-      setDocsLoading(false);
+      setLoadingDocumentos(false);
     }
   };
 
-  const filteredDocs = useMemo(() => {
-    if (!search.trim()) return documentos;
-    const term = search.toLowerCase();
-    return documentos.filter((doc) => {
-      const campos = [
-        doc.tipoDocumento,
-        doc.descripcion,
-        doc.clinicaOrigen,
-        doc.profesionalSalud,
-        doc.formatoDocumento
-      ].filter(Boolean);
-      return campos.some((value) => value.toLowerCase().includes(term));
-    });
-  }, [documentos, search]);
+  const handleLogout = () => {
+    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
+  };
+
+  const handleFiltroChange = (campo, valor) => {
+    setFiltros(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+  };
+
+  const documentosFiltrados = documentosClinicos.filter(doc => {
+    if (filtros.categoria !== 'todos' && doc.categoria !== filtros.categoria) return false;
+    if (filtros.institucion !== 'todos' && doc.institucion !== filtros.institucion) return false;
+    if (filtros.profesional !== 'todos' && doc.profesional !== filtros.profesional) return false;
+    return true;
+  });
 
   const resumen = useMemo(() => {
-    const total = documentos.length;
-    const restringidos = documentos.filter((doc) => doc.restringido || doc.accesoPermitido === false).length;
+    const total = documentosClinicos.length;
+    const restringidos = documentosClinicos.filter((doc) => !doc.accesoPermitido).length;
     return {
       total,
       conAcceso: total - restringidos,
       restringidos
     };
-  }, [documentos]);
+  }, [documentosClinicos]);
+
+  const categorias = [...new Set(documentosClinicos.map(doc => doc.categoria))];
+  const instituciones = [...new Set(documentosClinicos.map(doc => doc.institucion))];
+  const profesionales = [...new Set(documentosClinicos.map(doc => doc.profesional))];
 
   const formatDate = (isoDate) => {
     if (!isoDate) return 'Sin fecha';
@@ -100,19 +159,17 @@ const HistoriaClinica = () => {
     });
   };
 
-  const handleDownload = (doc) => {
-    if (!doc?.uriDocumento) {
-      alert('Este documento todavía no tiene un enlace de descarga disponible.');
-      return;
-    }
-    window.open(doc.uriDocumento, '_blank', 'noopener,noreferrer');
-  };
-
   if (loading) {
     return (
-      <div className="slider_area" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-        <div className="container text-center">
-          <h3>Cargando historia clínica...</h3>
+      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center'}}>
+        <div className="container">
+          <div className="row">
+            <div className="col-xl-12">
+              <div className="slider_text text-center">
+                <h3>Cargando...</h3>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -120,15 +177,30 @@ const HistoriaClinica = () => {
 
   if (!user) {
     return (
-      <div className="slider_area" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-        <div className="container text-center">
-          <h3 style={{ color: '#1f2b7b', marginBottom: '20px' }}>Acceso restringido</h3>
-          <p style={{ color: '#64748b', fontSize: '18px' }}>
-            Debes iniciar sesión para revisar tu historia clínica electrónica.
-          </p>
-          <a href="/" className="boxed-btn3" style={{ marginTop: '20px' }}>
-            Volver al inicio
-          </a>
+      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center'}}>
+        <div className="container">
+          <div className="row">
+            <div className="col-xl-12">
+              <div className="slider_text text-center">
+                <h3 style={{color: '#1f2b7b', marginBottom: '20px'}}>Acceso Restringido</h3>
+                <p style={{color: '#64748b', fontSize: '18px', marginBottom: '30px'}}>
+                  Debes iniciar sesión para acceder a tu historia clínica
+                </p>
+                <a href="/" className="boxed-btn3" style={{
+                  padding: '12px 24px',
+                  fontSize: '14px',
+                  textDecoration: 'none',
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  display: 'inline-block'
+                }}>
+                  Volver al Inicio
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -136,33 +208,53 @@ const HistoriaClinica = () => {
 
   return (
     <>
-      <div
-        className="bradcam_area"
-        style={{
-          paddingTop: '120px',
-          paddingBottom: '60px',
-          background: 'linear-gradient(135deg, #1f2b7b 0%, #3b82f6 100%)',
-          marginTop: '0px'
-        }}
-      >
-        <div className="container text-center">
-          <h3 style={{ color: '#ffffff', fontSize: '42px', fontWeight: '700', marginBottom: '10px' }}>
-            Historia Clínica
-          </h3>
-          <p style={{ color: '#e2e8f0', fontSize: '18px' }}>
-            Documentos registrados en el RNDC para {user?.primerNombre || 'tu usuario'}
-          </p>
+      <div className="bradcam_area" style={{
+        paddingTop: '120px', 
+        paddingBottom: '80px',
+        background: 'linear-gradient(135deg, #1f2b7b 0%, #3b82f6 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        marginTop: '0px'
+      }}>
+        <div className="container">
+          <div className="row">
+            <div className="col-xl-12">
+              <div className="bradcam_text text-center">
+                <h3 style={{
+                  color: '#ffffff',
+                  fontSize: '48px',
+                  fontWeight: '700',
+                  marginBottom: '15px',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}>
+                  Mi Historia Clínica
+                </h3>
+                <p style={{
+                  color: '#e2e8f0',
+                  fontSize: '18px',
+                  marginBottom: '0',
+                  fontWeight: '400'
+                }}>
+                  Bienvenido, <strong style={{color: '#ffffff'}}>{user.nombre || 'Usuario'}</strong>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
+        <div style={{
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          background: 'url("/assets/img/banner/banner.png") center/cover',
+          opacity: '0.1',
+          zIndex: '1'
+        }}></div>
       </div>
 
-      <div className="container" style={{ paddingTop: '60px', paddingBottom: '60px' }}>
-        {error && (
-          <div className="alert alert-warning" role="alert">
-            <i className="fa fa-exclamation-triangle me-2" />
-            {error}
-          </div>
-        )}
-
+      <div className="container" style={{paddingTop: '60px', paddingBottom: '60px'}}>
+        {/* Tarjetas de Resumen */}
         <div className="row g-4 mb-4">
           <div className="col-md-4">
             <div className="card shadow-sm h-100" style={{ borderRadius: '16px' }}>
@@ -190,150 +282,417 @@ const HistoriaClinica = () => {
           </div>
         </div>
 
-        <div className="card mb-4" style={{ borderRadius: '16px', boxShadow: '0 12px 30px rgba(15,23,42,0.08)' }}>
-          <div className="card-body">
-            <div className="row g-3 align-items-center">
-              <div className="col-md-8">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Buscar por descripción, clínica, profesional o tipo..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="col-md-4 text-end">
-                <button
-                  className="btn btn-outline-primary me-2"
-                  onClick={loadDocumentos}
-                  disabled={docsLoading}
-                >
-                  {docsLoading ? 'Actualizando...' : 'Actualizar'}
-                </button>
-                <span className="text-muted" style={{ fontSize: '14px' }}>
-                  {filteredDocs.length} resultados
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {docsLoading && (
-          <div className="alert alert-info">
-            <i className="fa fa-spinner fa-spin me-2" />
-            Buscando documentos en el RNDC...
+        {error && (
+          <div className="alert alert-warning" role="alert" style={{marginBottom: '30px'}}>
+            <i className="fa fa-exclamation-triangle me-2" />
+            {error}
           </div>
         )}
 
-        {filteredDocs.length === 0 && !docsLoading ? (
-          <div className="text-center py-5">
-            <i className="fa fa-folder-open" style={{ fontSize: '60px', color: '#cbd5f5' }} />
-            <p className="mt-3 text-muted">No hay documentos disponibles.</p>
+        <div className="row">
+          {/* Filtros - Barra lateral */}
+          <div className="col-xl-3 col-lg-4">
+            <div className="sidebar_widget" style={{
+              backgroundColor: '#ffffff',
+              padding: '35px',
+              borderRadius: '15px',
+              marginBottom: '30px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+              border: '1px solid #e2e8f0'
+            }}>
+              <h4 style={{
+                marginBottom: '25px', 
+                color: '#1f2b7b',
+                fontSize: '24px',
+                fontWeight: '700',
+                borderBottom: '3px solid #3b82f6',
+                paddingBottom: '10px'
+              }}>
+                <i className="flaticon-filter" style={{marginRight: '8px'}}></i>
+                Filtros
+              </h4>
+              
+              <div className="widget_inner" style={{marginBottom: '40px'}}>
+                <h5 style={{
+                  fontSize: '16px', 
+                  marginBottom: '20px',
+                  color: '#2d3748',
+                  fontWeight: '600'
+                }}>
+                  <i className="flaticon-file" style={{marginRight: '8px', color: '#3b82f6'}}></i>
+                  Categoría
+                </h5>
+                <div className="" style={{width: '100%'}}>
+                  <select 
+                    value={filtros.categoria} 
+                    onChange={(e) => handleFiltroChange('categoria', e.target.value)}
+                    style={{
+                      width: '100%', 
+                      padding: '15px 20px', 
+                      border: '2px solid #e2e8f0', 
+                      borderRadius: '10px',
+                      backgroundColor: '#ffffff',
+                      fontSize: '15px',
+                      color: '#2d3748',
+                      transition: 'all 0.3s ease',
+                      outline: 'none',
+                      height: '50px'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                  >
+                    <option value="todos">Todas las categorías</option>
+                    {categorias.map(categoria => (
+                      <option key={categoria} value={categoria}>{categoria}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="widget_inner" style={{marginBottom: '40px'}}>
+                <h5 style={{
+                  fontSize: '16px', 
+                  marginBottom: '20px',
+                  color: '#2d3748',
+                  fontWeight: '600'
+                }}>
+                  <i className="flaticon-hospital" style={{marginRight: '8px', color: '#3b82f6'}}></i>
+                  Institución
+                </h5>
+                <div className="" style={{width: '100%'}}>
+                  <select 
+                    value={filtros.institucion} 
+                    onChange={(e) => handleFiltroChange('institucion', e.target.value)}
+                    style={{
+                      width: '100%', 
+                      padding: '15px 20px', 
+                      border: '2px solid #e2e8f0', 
+                      borderRadius: '10px',
+                      backgroundColor: '#ffffff',
+                      fontSize: '15px',
+                      color: '#2d3748',
+                      transition: 'all 0.3s ease',
+                      outline: 'none',
+                      height: '50px'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                  >
+                    <option value="todos">Todas las instituciones</option>
+                    {instituciones.map(institucion => (
+                      <option key={institucion} value={institucion}>{institucion}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="widget_inner" style={{marginBottom: '40px'}}>
+                <h5 style={{
+                  fontSize: '16px', 
+                  marginBottom: '20px',
+                  color: '#2d3748',
+                  fontWeight: '600'
+                }}>
+                  <i className="flaticon-doctor" style={{marginRight: '8px', color: '#3b82f6'}}></i>
+                  Profesional
+                </h5>
+                <div className="" style={{width: '100%'}}>
+                  <select 
+                    value={filtros.profesional} 
+                    onChange={(e) => handleFiltroChange('profesional', e.target.value)}
+                    style={{
+                      width: '100%', 
+                      padding: '15px 20px', 
+                      border: '2px solid #e2e8f0', 
+                      borderRadius: '10px',
+                      backgroundColor: '#ffffff',
+                      fontSize: '15px',
+                      color: '#2d3748',
+                      transition: 'all 0.3s ease',
+                      outline: 'none',
+                      height: '50px'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                  >
+                    <option value="todos">Todos los profesionales</option>
+                    {profesionales.map(profesional => (
+                      <option key={profesional} value={profesional}>{profesional}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="widget_inner" style={{
+                backgroundColor: '#f7fafc',
+                padding: '20px',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <h5 style={{
+                  fontSize: '16px', 
+                  marginBottom: '15px',
+                  color: '#2d3748',
+                  fontWeight: '600'
+                }}>
+                  <i className="flaticon-search" style={{marginRight: '8px', color: '#3b82f6'}}></i>
+                  Resultados
+                </h5>
+                <div style={{
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  fontWeight: '600',
+                  fontSize: '16px'
+                }}>
+                  {documentosFiltrados.length} de {documentosClinicos.length} documentos
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="row g-4">
-            {filteredDocs.map((doc) => (
-              <div className="col-xl-6" key={doc.id}>
-                <div className="card h-100 shadow-sm" style={{ borderRadius: '16px' }}>
-                  <div className="card-body d-flex flex-column">
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <div>
-                        <h5 style={{ color: '#1f2937', fontWeight: '600', marginBottom: '6px' }}>
-                          {doc.tipoDocumento || 'Documento clínico'}
-                        </h5>
-                        <small className="text-muted">{formatDate(doc.fechaCreacion)}</small>
+
+          {/* Lista de documentos */}
+          <div className="col-xl-9 col-lg-8">
+            {loadingDocumentos ? (
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '60px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.08)'
+              }}>
+                <div className="spinner-border text-primary" role="status" style={{marginBottom: '20px'}}>
+                  <span className="sr-only">Cargando...</span>
+                </div>
+                <p style={{color: '#64748b', fontSize: '16px'}}>Cargando documentos clínicos...</p>
+              </div>
+            ) : error ? (
+              <div style={{
+                backgroundColor: '#fff1f2',
+                padding: '40px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                border: '1px solid #fecaca'
+              }}>
+                <i className="flaticon-warning" style={{fontSize: '48px', color: '#dc2626', marginBottom: '15px'}}></i>
+                <p style={{color: '#dc2626', fontSize: '16px', marginBottom: '0'}}>{error}</p>
+              </div>
+            ) : documentosFiltrados.length === 0 ? (
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '60px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.08)'
+              }}>
+                <i className="flaticon-folder" style={{fontSize: '64px', color: '#cbd5e1', marginBottom: '20px'}}></i>
+                <h4 style={{color: '#475569', marginBottom: '10px'}}>
+                  {documentosClinicos.length === 0 ? 'No hay documentos disponibles' : 'No se encontraron documentos'}
+                </h4>
+                <p style={{color: '#64748b'}}>
+                  {documentosClinicos.length === 0 
+                    ? 'Aún no tienes documentos clínicos registrados en el sistema.'
+                    : 'Intenta cambiar los filtros para ver más resultados.'}
+                </p>
+              </div>
+            ) : (
+              <div className="row">
+                {documentosFiltrados.map(documento => (
+                <div key={documento.id} className="col-xl-12" style={{marginBottom: '35px'}}>
+                  <div className="single_blog" style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '15px',
+                    boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s ease',
+                    border: '1px solid #e2e8f0',
+                    position: 'relative'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-5px)';
+                    e.currentTarget.style.boxShadow = '0 15px 35px rgba(0,0,0,0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.08)';
+                  }}>
+                    <div className="row no-gutters">
+                      {/* Imagen/Icono */}
+                      <div className="col-xl-3 col-lg-4">
+                        <div className="blog_thumb" style={{
+                          height: '180px',
+                          background: `linear-gradient(135deg, #1f2b7b 0%, #3b82f6 50%, #06b6d4 100%)`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            top: '0',
+                            left: '0',
+                            right: '0',
+                            bottom: '0',
+                            background: 'rgba(255,255,255,0.1)',
+                            backdropFilter: 'blur(10px)'
+                          }}></div>
+                          <i className={`flaticon-${documento.categoria === 'Policlínica' ? 'doctor' : 
+                            documento.categoria === 'Laboratorio' ? 'test-tube' :
+                            documento.categoria === 'Imagenología' ? 'x-ray' :
+                            documento.categoria === 'Vacunación' ? 'syringe' : 
+                            documento.categoria === 'Especialidad' ? 'medical' : 'file'}`} 
+                            style={{
+                              fontSize: '48px', 
+                              color: '#ffffff',
+                              zIndex: '2',
+                              position: 'relative',
+                              textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                            }}></i>
+                        </div>
+                      </div>
+                      
+                      {/* Contenido */}
+                      <div className="col-xl-9 col-lg-8">
+                        <div className="blog_content" style={{padding: '25px'}}>
+                          <div className="blog_meta" style={{marginBottom: '20px'}}>
+                            <span style={{
+                              backgroundColor: '#1f2b7b',
+                              color: '#ffffff',
+                              padding: '6px 14px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {documento.categoria}
+                            </span>
+                            <span style={{
+                              marginLeft: '12px', 
+                              color: '#64748b', 
+                              fontSize: '13px',
+                              fontWeight: '500'
+                            }}>
+                              <i className="flaticon-calendar" style={{marginRight: '5px'}}></i>
+                              {formatDate(documento.fecha)}
+                            </span>
+                          </div>
+                          
+                          <h3 style={{
+                            fontSize: '20px',
+                            fontWeight: '700',
+                            marginBottom: '15px',
+                            color: '#1e293b',
+                            lineHeight: '1.3'
+                          }}>
+                            {documento.institucion}
+                          </h3>
+                          
+                          <div style={{
+                            backgroundColor: '#f8fafc',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            marginBottom: '15px',
+                            border: '1px solid #e2e8f0'
+                          }}>
+                            <p style={{
+                              color: '#475569',
+                              marginBottom: '0',
+                              fontSize: '13px',
+                              fontWeight: '500'
+                            }}>
+                              <i className="flaticon-user" style={{marginRight: '6px', color: '#3b82f6'}}></i>
+                              <strong>Profesional:</strong> {documento.profesional}
+                            </p>
+                          </div>
+                          
+                          <p style={{
+                            color: '#475569',
+                            marginBottom: '20px',
+                            lineHeight: '1.6',
+                            fontSize: '14px'
+                          }}>
+                            {documento.descripcion}
+                          </p>
+                          
+                          <div className="d-flex justify-content-between align-items-center" style={{
+                            paddingTop: '15px',
+                            borderTop: '1px solid #e2e8f0'
+                          }}>
+                            <div style={{
+                              color: '#64748b', 
+                              fontSize: '13px',
+                              fontWeight: '500'
+                            }}>
+                              <i className="flaticon-calendar" style={{marginRight: '6px', color: '#3b82f6'}}></i>
+                              {formatDate(documento.fecha)}
+                            </div>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                              {documento.id && documento.uriDocumento && documento.uriDocumento.includes('localhost:8081') ? (
+                                <a
+                                  href={`${config.BACKEND_URL}/api/metadatos-documento/${documento.id}/descargar`}
+                                  download={`${documento.categoria || 'documento'}-${documento.id}.pdf`}
+                                  className="boxed-btn3" 
+                                  style={{
+                                    padding: '8px 20px',
+                                    fontSize: '13px',
+                                    textDecoration: 'none',
+                                    backgroundColor: '#10b981',
+                                    color: '#ffffff',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s ease',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'inline-block'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = '#059669';
+                                    e.target.style.transform = 'translateY(-2px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = '#10b981';
+                                    e.target.style.transform = 'translateY(0)';
+                                  }}
+                                >
+                                  <i className="flaticon-download" style={{marginRight: '4px'}}></i>
+                                  Descargar PDF
+                                </a>
+                              ) : (
+                                <span
+                                  className="boxed-btn3" 
+                                  style={{
+                                    padding: '8px 20px',
+                                    fontSize: '13px',
+                                    backgroundColor: '#9ca3af',
+                                    color: '#ffffff',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    cursor: 'not-allowed',
+                                    display: 'inline-block',
+                                    opacity: 0.6
+                                  }}
+                                  title="Documento no disponible para descarga"
+                                >
+                                  <i className="flaticon-download" style={{marginRight: '4px'}}></i>
+                                  No disponible
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-                    <p className="text-muted mb-3" style={{ minHeight: '46px' }}>
-                      {doc.descripcion || 'Sin descripción'}
-                    </p>
-
-                    <div className="mb-3">
-                      <small className="d-block text-muted">
-                        <strong>Clínica:</strong> {doc.clinicaOrigen || 'No informado'}
-                      </small>
-                      <small className="d-block text-muted">
-                        <strong>Profesional:</strong> {doc.profesionalSalud || 'No informado'}
-                      </small>
-                      <small className="d-block text-muted">
-                        <strong>Formato:</strong> {doc.formatoDocumento || 'PDF'}
-                      </small>
-                    </div>
-
-                    <div className="mt-auto d-flex gap-2">
-                      <button
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={() => setSelectedDoc(doc)}
-                      >
-                        Ver detalles
-                      </button>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleDownload(doc)}
-                        disabled={!doc.uriDocumento}
-                      >
-                        Descargar
-                      </button>
-                    </div>
                   </div>
                 </div>
+              ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-
-        {selectedDoc && (
-          <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.6)' }}>
-            <div className="modal-dialog modal-lg modal-dialog-centered">
-              <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-                <div className="modal-header border-0">
-                  <div>
-                    <h5 className="modal-title" style={{ fontWeight: '700' }}>
-                      {selectedDoc.tipoDocumento || 'Documento clínico'}
-                    </h5>
-                    <small className="text-muted">{formatDate(selectedDoc.fechaCreacion)}</small>
-                  </div>
-                  <button type="button" className="btn-close" onClick={() => setSelectedDoc(null)} />
-                </div>
-                <div className="modal-body">
-                  <dl className="row mb-0">
-                    <dt className="col-sm-4">Descripción</dt>
-                    <dd className="col-sm-8">{selectedDoc.descripcion || 'Sin descripción'}</dd>
-                    <dt className="col-sm-4">Clínica</dt>
-                    <dd className="col-sm-8">{selectedDoc.clinicaOrigen || 'No informado'}</dd>
-                    <dt className="col-sm-4">Profesional</dt>
-                    <dd className="col-sm-8">{selectedDoc.profesionalSalud || 'No informado'}</dd>
-                    <dt className="col-sm-4">Formato</dt>
-                    <dd className="col-sm-8">{selectedDoc.formatoDocumento || 'PDF'}</dd>
-                    <dt className="col-sm-4">URL</dt>
-                    <dd className="col-sm-8">
-                      {selectedDoc.uriDocumento ? (
-                        <a href={selectedDoc.uriDocumento} target="_blank" rel="noreferrer">
-                          {selectedDoc.uriDocumento}
-                        </a>
-                      ) : (
-                        'Sin URL registrada'
-                      )}
-                    </dd>
-                  </dl>
-                </div>
-                <div className="modal-footer border-0">
-                  <button className="btn btn-secondary" onClick={() => setSelectedDoc(null)}>
-                    Cerrar
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => handleDownload(selectedDoc)}
-                    disabled={!selectedDoc.uriDocumento}
-                  >
-                    Descargar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </>
   );
