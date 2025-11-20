@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import config from '../config';
 
 const GestionClinicas = () => {
   const [nodos, setNodos] = useState([]);
@@ -52,7 +53,7 @@ const GestionClinicas = () => {
   const loadNodos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/nodos', {
+      const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -126,7 +127,7 @@ const GestionClinicas = () => {
           return;
         }
 
-        const response = await fetch(`http://localhost:8080/api/nodos/${editingRUT}`, {
+        const response = await fetch(`${config.BACKEND_URL}/api/nodos/${editingRUT}`, {
           method: 'PUT',
           credentials: 'include',
           headers: {
@@ -166,7 +167,7 @@ const GestionClinicas = () => {
           return;
         }
       } else {
-        const response = await fetch('http://localhost:8080/api/nodos', {
+        const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
           method: 'POST',
           credentials: 'include',
           headers: {
@@ -258,7 +259,7 @@ const GestionClinicas = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/nodos/${identifier}`, {
+      const response = await fetch(`${config.BACKEND_URL}/api/nodos/${identifier}`, {
         method: 'DELETE',
         credentials: 'include'
       });

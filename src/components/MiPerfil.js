@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 
 const MiPerfil = () => {
   const [user, setUser] = useState(null);
@@ -13,18 +14,84 @@ const MiPerfil = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState('');
-  const [profesionales, setProfesionales] = useState([]);
   const [clinicas, setClinicas] = useState([]);
-  const [loadingProfesionales, setLoadingProfesionales] = useState(false);
   const [loadingClinicas, setLoadingClinicas] = useState(false);
-  const [tipoAutorizado, setTipoAutorizado] = useState('profesional'); // 'profesional', 'clinica', 'cualquiera'
+  const [todosLosProfesionales, setTodosLosProfesionales] = useState(true); // Si true, todos los profesionales de la clínica
+  const [especialidadesSeleccionadas, setEspecialidadesSeleccionadas] = useState([]); // Lista de especialidades seleccionadas
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  
+  // Lista de especialidades disponibles (mismas para todas las clínicas)
+  const especialidadesDisponibles = [
+    { value: 'MEDICINA_GENERAL', label: 'Medicina General' },
+    { value: 'MEDICINA_INTERNA', label: 'Medicina Interna' },
+    { value: 'MEDICINA_FAMILIAR', label: 'Medicina Familiar' },
+    { value: 'MEDICINA_PREVENTIVA', label: 'Medicina Preventiva' },
+    { value: 'MEDICINA_DEPORTIVA', label: 'Medicina Deportiva' },
+    { value: 'MEDICINA_REHABILITACION', label: 'Medicina Rehabilitación' },
+    { value: 'MEDICINA_CRITICA', label: 'Medicina Crítica' },
+    { value: 'MEDICINA_DE_URGENCIAS', label: 'Medicina de Urgencias' },
+    { value: 'MEDICINA_DEL_TRABAJO', label: 'Medicina del Trabajo' },
+    { value: 'MEDICINA_FORNENSE', label: 'Medicina Forense' },
+    { value: 'CARDIOLOGIA', label: 'Cardiología' },
+    { value: 'NEUMOLOGIA', label: 'Neumología' },
+    { value: 'GASTROENTEROLOGIA', label: 'Gastroenterología' },
+    { value: 'HEPATOLOGIA', label: 'Hepatología' },
+    { value: 'NEFROLOGIA', label: 'Nefrología' },
+    { value: 'ENDOCRINOLOGIA', label: 'Endocrinología' },
+    { value: 'HEMATOLOGIA', label: 'Hematología' },
+    { value: 'ONCOLOGIA', label: 'Oncología' },
+    { value: 'INFECTOLOGIA', label: 'Infectología' },
+    { value: 'REUMATOLOGIA', label: 'Reumatología' },
+    { value: 'INMUNOLOGIA', label: 'Inmunología' },
+    { value: 'NEUROLOGIA', label: 'Neurología' },
+    { value: 'NEUROCIRUGIA', label: 'Neurocirugía' },
+    { value: 'PSIQUIATRIA', label: 'Psiquiatría' },
+    { value: 'PSIQUIATRIA_INFANTIL', label: 'Psiquiatría Infantil' },
+    { value: 'GINECOLOGIA', label: 'Ginecología' },
+    { value: 'OBSTETRICIA', label: 'Obstetricia' },
+    { value: 'PEDIATRIA', label: 'Pediatría' },
+    { value: 'NEONATOLOGIA', label: 'Neonatología' },
+    { value: 'DERMATOLOGIA', label: 'Dermatología' },
+    { value: 'OFTALMOLOGIA', label: 'Oftalmología' },
+    { value: 'OTORRINOLARINGOLOGIA', label: 'Otorrinolaringología' },
+    { value: 'UROLOGIA', label: 'Urología' },
+    { value: 'ANDROLOGIA', label: 'Andrología' },
+    { value: 'ORTOPEDIA', label: 'Ortopedia' },
+    { value: 'TRAUMATOLOGIA', label: 'Traumatología' },
+    { value: 'CIRUGIA_GENERAL', label: 'Cirugía General' },
+    { value: 'CIRUGIA_PLASTICA', label: 'Cirugía Plástica' },
+    { value: 'CIRUGIA_PEDIATRICA', label: 'Cirugía Pediátrica' },
+    { value: 'CIRUGIA_CARDIOVASCULAR', label: 'Cirugía Cardiovascular' },
+    { value: 'CIRUGIA_NEUROLOGICA', label: 'Cirugía Neurológica' },
+    { value: 'CIRUGIA_BUCOMAXILOFACIAL', label: 'Cirugía Bucomaxilofacial' },
+    { value: 'ANESTESIOLOGIA', label: 'Anestesiología' },
+    { value: 'RADIOLOGIA', label: 'Radiología' },
+    { value: 'IMAGENOLOGIA', label: 'Imagenología' },
+    { value: 'MEDICINA_NUCLEAR', label: 'Medicina Nuclear' },
+    { value: 'PATOLOGIA', label: 'Patología' },
+    { value: 'LABORATORIO_CLINICO', label: 'Laboratorio Clínico' },
+    { value: 'ODONTOLOGIA', label: 'Odontología' },
+    { value: 'ORTODONCIA', label: 'Ortodoncia' },
+    { value: 'ENDODONCIA', label: 'Endodoncia' },
+    { value: 'PERIODONCIA', label: 'Periodoncia' },
+    { value: 'PROTESIS_DENTAL', label: 'Prótesis Dental' },
+    { value: 'PODIATRIA', label: 'Podiatría' },
+    { value: 'FISIATRIA', label: 'Fisiatría' },
+    { value: 'TERAPIA_OCUPACIONAL', label: 'Terapia Ocupacional' },
+    { value: 'TERAPIA_FISICA', label: 'Terapia Física' },
+    { value: 'NUTRICION', label: 'Nutrición' },
+    { value: 'PSICOLOGIA_CLINICA', label: 'Psicología Clínica' },
+    { value: 'ENFERMERIA', label: 'Enfermería' },
+    { value: 'ENFERMERIA_PEDIATRICA', label: 'Enfermería Pediátrica' },
+    { value: 'CUIDADOS_PALIATIVOS', label: 'Cuidados Paliativos' },
+    { value: 'MEDICINA_FAMILIAR_Y_COMUNITARIA', label: 'Medicina Familiar y Comunitaria' }
+  ];
+  
   const [formData, setFormData] = useState({
     alcance: 'TODOS_LOS_DOCUMENTOS',
     duracion: 'INDEFINIDA',
     gestion: 'AUTOMATICA',
     codDocumPaciente: '',
-    profesionalAutorizado: '',
     clinicaAutorizada: '',
     tipoDocumento: '',
     fechaVencimiento: '',
@@ -48,7 +115,6 @@ const MiPerfil = () => {
   useEffect(() => {
     if (activeSection === 'politicas' && user) {
       loadPoliticas();
-      loadProfesionales();
       loadClinicas();
     } else if (activeSection === 'accesos' && user) {
       loadAccesosHistoria();
@@ -71,7 +137,7 @@ const MiPerfil = () => {
       }
       
       if (documentoPaciente) {
-        fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
+        fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -126,7 +192,7 @@ const MiPerfil = () => {
       }
 
       // Usar el endpoint del servicio de políticas para obtener registros de acceso por paciente
-      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/registros/paciente/${userDocumento}`, {
+      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/registros/paciente/${userDocumento}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -176,7 +242,7 @@ const MiPerfil = () => {
       }
 
       // Obtener solicitudes pendientes del paciente
-      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
+      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -201,7 +267,7 @@ const MiPerfil = () => {
 
   const handleAprobarSolicitud = async (solicitudId) => {
     try {
-      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/${solicitudId}/aprobar`, {
+      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/${solicitudId}/aprobar`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -238,7 +304,7 @@ const MiPerfil = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/hcen-politicas-service/api/solicitudes/${solicitudId}/rechazar`, {
+      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/${solicitudId}/rechazar`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -264,36 +330,11 @@ const MiPerfil = () => {
     setTimeout(() => setMessage(''), 5000);
   };
 
-  const loadProfesionales = async () => {
-    try {
-      setLoadingProfesionales(true);
-      const response = await fetch('http://localhost:8080/api/users/profesionales', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProfesionales(data);
-      } else {
-        console.error('Error cargando profesionales');
-        setMessage('Error cargando profesionales. Intenta nuevamente más tarde.');
-      }
-    } catch (error) {
-      console.error('Error cargando profesionales:', error);
-      setMessage('Error cargando profesionales. Intenta nuevamente más tarde.');
-    } finally {
-      setLoadingProfesionales(false);
-    }
-  };
 
   const loadClinicas = async () => {
     try {
       setLoadingClinicas(true);
-      const response = await fetch('http://localhost:8080/api/prestadores-salud', {
+      const response = await fetch(`${config.BACKEND_URL}/api/prestadores-salud`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -318,7 +359,7 @@ const MiPerfil = () => {
 
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -344,7 +385,7 @@ const MiPerfil = () => {
   const loadPoliticas = async () => {
     try {
       setLoadingPoliticas(true);
-      const response = await fetch('http://localhost:8080/api/documentos/politicas', {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -370,10 +411,39 @@ const MiPerfil = () => {
   const filteredPoliticas = politicas.filter(politica => {
     if (!searchTerm) return true;
     
-    // Buscar por profesional/clínica
-    const profesionalStr = politica.profesionalAutorizado?.toLowerCase() || '';
-    return profesionalStr.includes(searchTerm.toLowerCase());
+    // Buscar por clínica
+    const clinicaStr = politica.clinicaAutorizada?.toLowerCase() || '';
+    const especialidadesStr = parseEspecialidadesParaMostrar(politica.especialidadesAutorizadas)?.toLowerCase() || '';
+    return clinicaStr.includes(searchTerm.toLowerCase()) || especialidadesStr.includes(searchTerm.toLowerCase());
   });
+  
+  // Helper para parsear especialidades y mostrarlas
+  const parseEspecialidadesParaMostrar = (especialidadesStr) => {
+    if (!especialidadesStr || especialidadesStr.trim() === '') {
+      return 'Todas las especialidades';
+    }
+    
+    try {
+      // Intentar parsear como JSON array
+      if (especialidadesStr.startsWith('[') && especialidadesStr.endsWith(']')) {
+        const especialidades = JSON.parse(especialidadesStr);
+        if (Array.isArray(especialidades) && especialidades.length > 0) {
+          return especialidades.map(esp => {
+            const especialidad = especialidadesDisponibles.find(e => e.value === esp);
+            return especialidad ? especialidad.label : esp;
+          }).join(', ');
+        }
+      }
+      // Si es comma-separated
+      const especialidades = especialidadesStr.split(',').map(s => s.trim());
+      return especialidades.map(esp => {
+        const especialidad = especialidadesDisponibles.find(e => e.value === esp);
+        return especialidad ? especialidad.label : esp;
+      }).join(', ');
+    } catch (e) {
+      return especialidadesStr;
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -400,8 +470,25 @@ const MiPerfil = () => {
 
     politicaData.codDocumPaciente = documentoPaciente;
     
-    // Agregar tipoAutorizado para que el backend sepa cómo mapear
-    politicaData.tipoAutorizado = tipoAutorizado;
+    // Validar que se haya seleccionado una clínica
+    if (!formData.clinicaAutorizada) {
+      setMessage('Debe seleccionar una clínica.');
+      return;
+    }
+    
+    politicaData.clinicaAutorizada = formData.clinicaAutorizada;
+    
+    // Manejar especialidades: si todosLosProfesionales está marcado, enviar null/array vacío
+    // Si no, enviar el array de especialidades seleccionadas
+    if (todosLosProfesionales) {
+      politicaData.especialidadesAutorizadas = []; // Array vacío = todos los profesionales
+    } else {
+      if (especialidadesSeleccionadas.length === 0) {
+        setMessage('Debe seleccionar al menos una especialidad o marcar "Todos los profesionales".');
+        return;
+      }
+      politicaData.especialidadesAutorizadas = especialidadesSeleccionadas;
+    }
     
     // Limpiar campos vacíos que pueden causar problemas de deserialización
     if (!politicaData.tipoDocumento || politicaData.tipoDocumento.trim() === '') {
@@ -414,36 +501,13 @@ const MiPerfil = () => {
       delete politicaData.referencia;
     }
     
-    // Limpiar campos según el tipo
-    if (tipoAutorizado === 'cualquiera') {
-      // Para "cualquiera", no se envía profesionalAutorizado ni clinicaAutorizada
-      delete politicaData.profesionalAutorizado;
-      delete politicaData.clinicaAutorizada;
-    } else if (tipoAutorizado === 'clinica') {
-      // Para "clinica", solo se envía clinicaAutorizada
-      delete politicaData.profesionalAutorizado;
-      if (!formData.clinicaAutorizada) {
-        setMessage('Debe seleccionar una clínica.');
-        return;
-      }
-      politicaData.clinicaAutorizada = formData.clinicaAutorizada;
-    } else if (tipoAutorizado === 'profesional') {
-      // Para "profesional", solo se envía profesionalAutorizado
-      delete politicaData.clinicaAutorizada;
-      if (!formData.profesionalAutorizado) {
-        setMessage('Debe seleccionar un profesional.');
-        return;
-      }
-      politicaData.profesionalAutorizado = formData.profesionalAutorizado;
-    }
-    
     console.log('Datos a enviar:', politicaData);
     
     try {
-      console.log('Enviando request a:', 'http://localhost:8080/api/documentos/politicas');
+      console.log('Enviando request a:', `${config.BACKEND_URL}/api/documentos/politicas`);
       console.log('Body:', JSON.stringify(politicaData));
       
-      const response = await fetch('http://localhost:8080/api/documentos/politicas', {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -486,7 +550,7 @@ const MiPerfil = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/documentos/politicas/${id}`, {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -510,18 +574,26 @@ const MiPerfil = () => {
   };
 
   const resetForm = () => {
-    setTipoAutorizado('profesional');
     setFormData({
       alcance: 'TODOS_LOS_DOCUMENTOS',
       duracion: 'INDEFINIDA',
       gestion: 'AUTOMATICA',
       codDocumPaciente: '',
-      profesionalAutorizado: '',
       clinicaAutorizada: '',
       tipoDocumento: '',
       fechaVencimiento: '',
       referencia: ''
     });
+    setTodosLosProfesionales(true);
+    setEspecialidadesSeleccionadas([]);
+  };
+  
+  const handleEspecialidadToggle = (especialidad) => {
+    if (especialidadesSeleccionadas.includes(especialidad)) {
+      setEspecialidadesSeleccionadas(especialidadesSeleccionadas.filter(e => e !== especialidad));
+    } else {
+      setEspecialidadesSeleccionadas([...especialidadesSeleccionadas, especialidad]);
+    }
   };
 
   const getAlcanceLabel = (alcance) => {
@@ -1118,49 +1190,24 @@ const MiPerfil = () => {
                                   #{politica.id}
                                 </td>
                                 <td style={{padding: '15px 20px', color: '#374151'}}>
-                                  {politica.profesionalAutorizado === 'CUALQUIER_PROFESIONAL' ? (
-                                    <span className="badge" style={{
-                                      backgroundColor: '#10b981',
-                                      color: '#ffffff',
-                                      padding: '8px 12px',
-                                      borderRadius: '6px',
-                                      fontWeight: '600',
-                                      fontSize: '13px'
-                                    }}>
-                                      <i className="fa fa-users" style={{marginRight: '5px'}}></i>
-                                      Cualquier Profesional
-                                    </span>
-                                  ) : politica.profesionalAutorizado === 'CLINICA_AUTORIZADA' ? (
+                                  <div>
                                     <span className="badge" style={{
                                       backgroundColor: '#3b82f6',
                                       color: '#ffffff',
                                       padding: '8px 12px',
                                       borderRadius: '6px',
                                       fontWeight: '600',
-                                      fontSize: '13px'
+                                      fontSize: '13px',
+                                      marginBottom: '8px',
+                                      display: 'inline-block'
                                     }}>
                                       <i className="fa fa-hospital" style={{marginRight: '5px'}}></i>
-                                      Clínica Autorizada
-                                      {politica.clinicaAutorizada && ` (ID: ${politica.clinicaAutorizada})`}
+                                      {politica.clinicaAutorizada ? `Clínica ${politica.clinicaAutorizada}` : 'Clínica Autorizada'}
                                     </span>
-                                  ) : (
-                                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                      <span className="badge" style={{
-                                        backgroundColor: '#8b5cf6',
-                                        color: '#ffffff',
-                                        padding: '6px 10px',
-                                        borderRadius: '6px',
-                                        fontWeight: '600',
-                                        fontSize: '12px'
-                                      }}>
-                                        <i className="fa fa-user-md" style={{marginRight: '5px'}}></i>
-                                        Profesional
-                                      </span>
-                                      <span style={{fontFamily: 'monospace', fontSize: '14px'}}>
-                                        {politica.profesionalAutorizado || 'N/A'}
-                                      </span>
+                                    <div style={{marginTop: '8px', fontSize: '13px', color: '#6b7280'}}>
+                                      <strong>Especialidades:</strong> {parseEspecialidadesParaMostrar(politica.especialidadesAutorizadas)}
                                     </div>
-                                  )}
+                                  </div>
                                 </td>
                                 <td style={{padding: '15px 20px'}}>
                                   <span className="badge" style={{
@@ -1644,147 +1691,159 @@ const MiPerfil = () => {
                 <div className="modal-body" style={{padding: '30px', maxHeight: '70vh', overflowY: 'auto'}}>
                   <div className="row">
                     <div className="col-md-12 mb-4">
-                      <label className="form-label" style={{
+                      <label htmlFor="clinicaAutorizada" className="form-label" style={{
                         color: 'var(--heading-color)',
                         fontWeight: '600',
                         marginBottom: '10px'
                       }}>
-                        Tipo de Autorización <span style={{color: '#dc2626'}}>*</span>
+                        Clínica <span style={{color: '#dc2626'}}>*</span>
                       </label>
-                      <select
-                        className="form-control"
-                        value={tipoAutorizado}
-                        onChange={(e) => setTipoAutorizado(e.target.value)}
-                        required
-                        style={{
-                          borderRadius: '8px',
-                          border: '2px solid #e5e7eb',
-                          padding: '12px 15px',
-                          fontSize: '16px',
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          minHeight: '48px'
-                        }}
-                      >
-                        <option value="profesional">Profesional Específico</option>
-                        <option value="clinica">Clínica Autorizada</option>
-                        <option value="cualquiera">Cualquier Profesional</option>
-                      </select>
-                    </div>
-
-                    {tipoAutorizado === 'profesional' && (
-                      <div className="col-md-6 mb-4">
-                        <label htmlFor="profesionalAutorizado" className="form-label" style={{
-                          color: 'var(--heading-color)',
-                          fontWeight: '600',
-                          marginBottom: '10px'
-                        }}>
-                          Profesional <span style={{color: '#dc2626'}}>*</span>
-                        </label>
-                        {loadingProfesionales ? (
-                          <div className="form-control"                           style={{
-                            borderRadius: '8px',
-                            border: '2px solid #e5e7eb',
-                            padding: '12px 15px',
-                            fontSize: '16px',
-                            color: '#6b7280',
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            minHeight: '48px'
-                          }}>
-                            Cargando profesionales...
-                          </div>
-                        ) : (
-                          <select
-                            id="profesionalAutorizado"
-                            className="form-control"
-                            value={formData.profesionalAutorizado}
-                            onChange={(e) => setFormData({...formData, profesionalAutorizado: e.target.value})}
-                            required
-                            style={{
-                              borderRadius: '8px',
-                              border: '2px solid #e5e7eb',
-                              padding: '12px 15px',
-                              fontSize: '16px',
-                              width: '100%',
-                              boxSizing: 'border-box',
-                              minHeight: '48px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}
-                          >
-                            <option value="">Seleccione un profesional</option>
-                            {profesionales.map(prof => (
-                              <option key={prof.uid} value={prof.uid}>
-                                {prof.nombre} ({prof.email})
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    )}
-
-                    {tipoAutorizado === 'clinica' && (
-                      <div className="col-md-6 mb-4">
-                        <label htmlFor="clinicaAutorizada" className="form-label" style={{
-                          color: 'var(--heading-color)',
-                          fontWeight: '600',
-                          marginBottom: '10px'
-                        }}>
-                          Clínica <span style={{color: '#dc2626'}}>*</span>
-                        </label>
-                        {loadingClinicas ? (
-                          <div className="form-control"                           style={{
-                            borderRadius: '8px',
-                            border: '2px solid #e5e7eb',
-                            padding: '12px 15px',
-                            fontSize: '16px',
-                            color: '#6b7280',
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            minHeight: '48px'
-                          }}>
-                            Cargando clínicas...
-                          </div>
-                        ) : (
-                          <select
-                            id="clinicaAutorizada"
-                            className="form-control"
-                            value={formData.clinicaAutorizada}
-                            onChange={(e) => setFormData({...formData, clinicaAutorizada: e.target.value})}
-                            required
-                            style={{
-                              borderRadius: '8px',
-                              border: '2px solid #e5e7eb',
-                              padding: '12px 15px',
-                              fontSize: '16px'
-                            }}
-                          >
-                            <option value="">Seleccione una clínica</option>
-                            {clinicas.map(clinica => (
-                              <option key={clinica.id} value={clinica.id}>
-                                {clinica.nombre} {clinica.rut ? `(${clinica.rut})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    )}
-
-                    {tipoAutorizado === 'cualquiera' && (
-                      <div className="col-md-6 mb-4">
+                      {loadingClinicas ? (
                         <div className="form-control" style={{
                           borderRadius: '8px',
                           border: '2px solid #e5e7eb',
                           padding: '12px 15px',
                           fontSize: '16px',
-                          backgroundColor: '#f8fafc',
                           color: '#6b7280',
                           width: '100%',
-                          boxSizing: 'border-box'
+                          boxSizing: 'border-box',
+                          minHeight: '48px'
                         }}>
-                          Cualquier profesional autorizado
+                          Cargando clínicas...
                         </div>
+                      ) : (
+                        <select
+                          id="clinicaAutorizada"
+                          className="form-control"
+                          value={formData.clinicaAutorizada}
+                          onChange={(e) => setFormData({...formData, clinicaAutorizada: e.target.value})}
+                          required
+                          style={{
+                            borderRadius: '8px',
+                            border: '2px solid #e5e7eb',
+                            padding: '12px 15px',
+                            fontSize: '16px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            minHeight: '48px'
+                          }}
+                        >
+                          <option value="">Seleccione una clínica</option>
+                          {clinicas.map(clinica => (
+                            <option key={clinica.id} value={clinica.id}>
+                              {clinica.nombre} {clinica.rut ? `(${clinica.rut})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {formData.clinicaAutorizada && (
+                      <div className="col-md-12 mb-4">
+                        <label className="form-label" style={{
+                          color: 'var(--heading-color)',
+                          fontWeight: '600',
+                          marginBottom: '15px',
+                          display: 'block'
+                        }}>
+                          Especialidades Autorizadas
+                        </label>
+                        
+                        <div className="mb-3" style={{
+                          padding: '15px',
+                          backgroundColor: '#f8fafc',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            fontWeight: '500'
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={todosLosProfesionales}
+                              onChange={(e) => {
+                                setTodosLosProfesionales(e.target.checked);
+                                if (e.target.checked) {
+                                  setEspecialidadesSeleccionadas([]);
+                                }
+                              }}
+                              style={{
+                                marginRight: '10px',
+                                width: '18px',
+                                height: '18px',
+                                cursor: 'pointer'
+                              }}
+                            />
+                            <span>Todas las especialidades</span>
+                          </label>
+                        </div>
+
+                        {!todosLosProfesionales && (
+                          <div style={{
+                            maxHeight: '300px',
+                            overflowY: 'auto',
+                            padding: '15px',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '8px',
+                            border: '1px solid #e5e7eb',
+                            marginTop: '10px'
+                          }}>
+                            <p style={{
+                              marginBottom: '15px',
+                              fontSize: '14px',
+                              color: '#6b7280',
+                              fontWeight: '500'
+                            }}>
+                              Seleccione las especialidades autorizadas:
+                            </p>
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+                              gap: '10px'
+                            }}>
+                              {especialidadesDisponibles.map(esp => (
+                                <label
+                                  key={esp.value}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    cursor: 'pointer',
+                                    padding: '8px',
+                                    borderRadius: '6px',
+                                    backgroundColor: especialidadesSeleccionadas.includes(esp.value) ? '#dbeafe' : 'transparent',
+                                    transition: 'background-color 0.2s'
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={especialidadesSeleccionadas.includes(esp.value)}
+                                    onChange={() => handleEspecialidadToggle(esp.value)}
+                                    style={{
+                                      marginRight: '8px',
+                                      width: '16px',
+                                      height: '16px',
+                                      cursor: 'pointer'
+                                    }}
+                                  />
+                                  <span style={{fontSize: '14px'}}>{esp.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {especialidadesSeleccionadas.length > 0 && (
+                              <p style={{
+                                marginTop: '15px',
+                                fontSize: '13px',
+                                color: '#059669',
+                                fontWeight: '500'
+                              }}>
+                                {especialidadesSeleccionadas.length} especialidad(es) seleccionada(s)
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
