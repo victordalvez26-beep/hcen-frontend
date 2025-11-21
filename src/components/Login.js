@@ -1,18 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import PerfilUsuario from './PerfilUsuario';
 import GestionClinicas from './GestionClinicas';
+import config from '../config';
 
 const Login = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔍 [DEBUG] Login.js useEffect ejecutado');
+    console.log('🔍 [DEBUG] URL completa:', window.location.href);
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
     const logoutStatus = urlParams.get('logout');
     const error = urlParams.get('error');
+    const tempToken = urlParams.get('token');
     
-    if (loginStatus === 'success') {
+    console.log('🔍 [DEBUG] loginStatus:', loginStatus);
+    console.log('🔍 [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
+    console.log('🔍 [DEBUG] tempToken valor:', tempToken);
+    
+    if (loginStatus === 'success' && tempToken) {
+      console.log('✅ Login exitoso! Intercambiando token temporal...');
+      exchangeTokenAndSetCookie(tempToken);
+    } else if (loginStatus === 'success') {
       console.log('Login exitoso! Verificando sesión...');
       window.history.replaceState({}, document.title, window.location.pathname);
       checkSession();
@@ -33,9 +44,51 @@ const Login = () => {
     }
   }, []);
   
+  const exchangeTokenAndSetCookie = async (tempToken) => {
+    try {
+      // Intercambiar token temporal por JWT real
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/exchange-token`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ tempToken: tempToken })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error intercambiando token');
+      }
+      
+      const data = await response.json();
+      const jwtToken = data.jwt;
+      const expires = data.expires || 86400; // 24 horas por defecto
+      
+      // Establecer cookie en el dominio del frontend
+      const domain = window.location.hostname;
+      const cookieString = `hcen_session=${jwtToken}; Path=/; Max-Age=${expires}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`;
+      document.cookie = cookieString;
+      
+      console.log('Token intercambiado y cookie establecida en dominio del frontend');
+      
+      // Limpiar URL inmediatamente (remover token de la barra de direcciones)
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Verificar sesión
+      checkSession();
+      
+    } catch (error) {
+      console.error('Error intercambiando token:', error);
+      alert('Error al completar el login: ' + error.message);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setLoading(false);
+    }
+  };
+  
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -50,7 +103,7 @@ const Login = () => {
         
         // Obtener información completa del usuario incluyendo el rol
         try {
-          const profileResponse = await fetch('http://localhost:8080/api/users/profile', {
+          const profileResponse = await fetch(`${config.BACKEND_URL}/api/users/profile`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -87,7 +140,7 @@ const Login = () => {
     const authUrl = new URL('https://auth-testing.iduruguay.gub.uy/oidc/v1/authorize');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', '890192');
-    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+    authUrl.searchParams.set('redirect_uri', config.CALLBACK_URL);
     authUrl.searchParams.set('scope', 'openid personal_info email');
     authUrl.searchParams.set('state', state);
     
@@ -95,7 +148,7 @@ const Login = () => {
   };
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:8080/api/auth/logout';
+    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
   };
 
   if (loading) {
