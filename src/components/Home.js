@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { getApiUrl } from '../utils/api';
 
 const Home = () => {
   const [user, setUser] = useState(null);
@@ -6,7 +7,7 @@ const Home = () => {
 
   const checkSession = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(getApiUrl('/api/auth/session'), {
         method: 'GET',
         credentials: 'include',
         headers: {
