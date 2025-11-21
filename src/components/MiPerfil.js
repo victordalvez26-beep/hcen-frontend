@@ -334,7 +334,7 @@ const MiPerfil = () => {
   const loadClinicas = async () => {
     try {
       setLoadingClinicas(true);
-      const response = await fetch(`${config.BACKEND_URL}/api/prestadores-salud`, {
+      const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -344,7 +344,15 @@ const MiPerfil = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setClinicas(data);
+        // Mapear NodoPerifericoDTO a formato compatible con el combo box
+        // Los nodos tienen: id, nombre, rut (RUT), estado, etc.
+        const clinicasFormateadas = Array.isArray(data) ? data.map(nodo => ({
+          id: nodo.id,
+          nombre: nodo.nombre,
+          rut: nodo.rut || nodo.RUT, // Puede venir como 'rut' o 'RUT'
+          estado: nodo.estado
+        })) : [];
+        setClinicas(clinicasFormateadas);
       } else {
         console.error('Error cargando clínicas');
         setMessage('Error cargando clínicas. Vuelve a intentarlo en unos minutos.');
