@@ -16,6 +16,7 @@ import Header from './components/Header';
 import './App.css';
 import './styles/colors.css';
 import './styles/components.css';
+import config from './config';
 
 function AppContent() {
   const [user, setUser] = useState(null);
@@ -28,7 +29,7 @@ function AppContent() {
   
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {

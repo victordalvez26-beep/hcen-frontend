@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import config from '../config';
 
-const API_BASE = 'http://localhost:8080/api/reportes';
+
+const API_BASE = `${config.BACKEND_URL}/api/reportes`;
 
 const formatDate = (date) => {
   const year = date.getFullYear();

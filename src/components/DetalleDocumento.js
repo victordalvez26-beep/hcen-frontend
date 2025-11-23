@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import config from '../config';
 
 const DetalleDocumento = () => {
   const { id } = useParams();
@@ -163,7 +164,7 @@ const DetalleDocumento = () => {
 
   const checkSession = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -188,7 +189,7 @@ const DetalleDocumento = () => {
 
   const loadDocumento = useCallback(async (documentoId) => {
     try {
-      const response = await fetch(`http://localhost:8080/hcen-rndc-service/api/rndc/documentos/${documentoId}`, {
+      const response = await fetch(`${config.BACKEND_URL}/hcen-rndc-service/api/rndc/documentos/${documentoId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {

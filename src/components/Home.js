@@ -54,7 +54,7 @@ const Home = () => {
     try {
       console.log('🔄 Intercambiando token temporal:', tempToken);
       // Intercambiar token temporal por JWT real
-      const response = await fetch(`${config.BACKEND_URL || 'http://localhost:8080'}/api/auth/exchange-token`, {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/exchange-token`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -96,11 +96,12 @@ const Home = () => {
   };
 
   const handleGubUyLogin = () => {
+    console.log(' config.BACKEND_URL', config.BACKEND_URL)
     const authUrl = new URL('https://auth-testing.iduruguay.gub.uy/oidc/v1/authorize');
     authUrl.searchParams.set('client_id', '890192');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'openid personal_info email');
-    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+    authUrl.searchParams.set('redirect_uri', config.BACKEND_URL);
     authUrl.searchParams.set('state', Math.random().toString(36).substring(2, 15));
     
     window.location.href = authUrl.toString();

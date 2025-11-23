@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 
 const Header = ({ user, activePage = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -361,7 +362,7 @@ const Header = ({ user, activePage = '' }) => {
             }}>
               {user ? (
                 <a 
-                  href="http://localhost:8080/api/auth/logout" 
+                  href={`${config.BACKEND_URL}/api/auth/logout` }
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
                   style={{
                     padding: isMobile ? '12px 20px' : '10px 20px',
@@ -394,11 +395,12 @@ const Header = ({ user, activePage = '' }) => {
                 <button
                   type="button"
                   onClick={() => {
+                    console.log(' config.BACKEND_URL', config.BACKEND_URL);
                     const authUrl = new URL('https://auth-testing.iduruguay.gub.uy/oidc/v1/authorize');
                     authUrl.searchParams.set('client_id', '890192');
                     authUrl.searchParams.set('response_type', 'code');
                     authUrl.searchParams.set('scope', 'openid personal_info email');
-                    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+                    authUrl.searchParams.set('redirect_uri', config.BACKEND_URL);
                     authUrl.searchParams.set('state', Math.random().toString(36).substring(2, 15));
                     window.location.href = authUrl.toString();
                   }} 
