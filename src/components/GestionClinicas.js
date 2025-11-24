@@ -122,11 +122,7 @@ const GestionClinicas = () => {
     
     try {
       if (editingRUT) {
-        if (!editingRUT) {
-          showMessage('Error: No se puede identificar el nodo a editar', 'error');
-          return;
-        }
-
+        
         const response = await fetch(`${config.BACKEND_URL}/api/nodos/${editingRUT}`, {
           method: 'PUT',
           credentials: 'include',
@@ -158,6 +154,7 @@ const GestionClinicas = () => {
               const errorJson = JSON.parse(responseBody);
               errorMessage = errorJson.error || errorJson.message || errorMessage;
             } catch (e) {
+              console.error('Error parseando JSON:', e);
               errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
             }
           } else if (responseBody) {
@@ -175,19 +172,7 @@ const GestionClinicas = () => {
           },
           body: JSON.stringify(formData)
         });
-
-        // Leer el cuerpo de la respuesta una sola vez
-        const contentType = response.headers.get('content-type') || '';
-        const isJson = contentType.includes('application/json');
         
-        let responseBody = '';
-        try {
-          responseBody = await response.text();
-        } catch (e) {
-          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
-          return;
-        }
-
         if (response.ok) {
           const createdNodo = await response.json();
           showActivationDetails(createdNodo, formData);
@@ -631,14 +616,38 @@ const GestionClinicas = () => {
                   fontWeight: '700',
                   fontSize: '24px'
                 }}>
-                  <i className="fa fa-check-circle" style={{marginRight: '12px', color: '#10b981'}}></i>
-                  ¡Clínica Creada Exitosamente!
+                  <i className="fa fa-check-circle" style={{marginRight: '12px', color: '#10b981'}}></i>{/*
+                  */}¡Clínica Creada Exitosamente!
                 </h5>
                 <button
                   type="button"
                   className="btn-close"
                   onClick={() => setShowActivationModal(false)}
-                ></button>
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    fontSize: '24px',
+                    color: '#6b7280',
+                    cursor: 'pointer',
+                    padding: '0',
+                    width: '30px',
+                    height: '30px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#1f2937';
+                    e.target.style.transform = 'scale(1.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = '#6b7280';
+                    e.target.style.transform = 'scale(1)';
+                  }}
+                >
+                  <i className="fa fa-times"></i>
+                </button>
               </div>
               <div className="modal-body" style={{padding: '30px'}}>
                 <div className="alert alert-info" style={{
@@ -664,7 +673,7 @@ const GestionClinicas = () => {
                     border: '1px solid #e5e7eb',
                     marginBottom: '15px'
                   }}>
-                    <div style={{marginBottom: '15px'}}>
+                    {/*<div style={{marginBottom: '15px'}}>
                       <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
                         👤 Usuario Administrador
                       </label>
@@ -695,7 +704,7 @@ const GestionClinicas = () => {
                           <i className="fa fa-copy"></i>
                         </button>
                       </div>
-                    </div>
+                    </div>*/}
 
                     <div style={{marginBottom: '15px'}}>
                       <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
@@ -732,7 +741,7 @@ const GestionClinicas = () => {
                       </div>
                     </div>
 
-                    <div>
+                    {/*<div>
                       <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
                         🏥 URL del Portal (después de activar)
                       </label>
@@ -765,7 +774,7 @@ const GestionClinicas = () => {
                           <i className="fa fa-copy"></i>
                         </button>
                       </div>
-                    </div>
+                    </div>*/}
                   </div>
 
                   <div className="alert alert-warning" style={{
@@ -793,7 +802,8 @@ const GestionClinicas = () => {
                   <ol style={{marginBottom: '0', paddingLeft: '20px', color: '#6b7280', fontSize: '13px'}}>
                     <li>Abrir el enlace de activación recibido por email</li>
                     <li>Crear una contraseña segura (mínimo 8 caracteres)</li>
-                    <li>Iniciar sesión con el usuario: <strong>{activationData.adminNickname}</strong></li>
+                    {/*<li>Iniciar sesión con el usuario: <strong>{activationData.adminNickname}</strong></li>*/}
+                    <li>Iniciar sesión con el usuario y contraseña generados</li>
                     <li>Acceder al portal de la clínica</li>
                   </ol>
                 </div>
