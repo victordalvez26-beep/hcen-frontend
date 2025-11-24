@@ -1,31 +1,74 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import config from '../config';
+import { setAuthToken, clearAuthToken, fetchWithAuth, getAuthToken, logout } from '../services/apiClient';
 
 const Home = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const tokenProcessedRef = useRef(false); // Protección para evitar procesar el token dos veces
 
   const checkSession = useCallback(async () => {
     try {
-      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
+      // Asegurar que el loading esté activo mientras verificamos
+      setLoading(true);
+      
+      // Esperar un momento para asegurar que localStorage esté completamente actualizado
+      // Esto previene problemas de timing cuando el token se acaba de guardar
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Verificar si hay token en localStorage (después de la pequeña espera)
+      let token = getAuthToken();
+      console.log('🔍 [DEBUG] checkSession - Token en localStorage (después de espera):', token ? 'SÍ' : 'NO');
+      
+      // Si aún no hay token, esperar un poco más (puede estar guardándose)
+      if (!token) {
+        console.log('⏳ [DEBUG] Token no encontrado, esperando un poco más...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        token = getAuthToken();
+        console.log('🔍 [DEBUG] checkSession - Token en localStorage (después de segunda espera):', token ? 'SÍ' : 'NO');
+      }
+      
+      // Si no hay token, no hacer la llamada
+      if (!token) {
+        console.log('⚠️ [DEBUG] checkSession - No hay token, retornando sin llamar al backend');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      
+      // Usar helper para requests autenticados (agrega Authorization header automáticamente)
+      const response = await fetchWithAuth('/api/auth/session', {
         method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
 
+      console.log('🔍 [DEBUG] checkSession - Response status:', response.status);
       const data = await response.json();
+      console.log('🔍 [DEBUG] checkSession - Response data:', data);
 
       if (data.authenticated) {
+        console.log('✅ Usuario autenticado:', data.nombre);
+        console.log('🔍 [DEBUG] setUser llamado con:', JSON.stringify(data, null, 2));
+        
+        // Actualizar estado del usuario y loading en la misma actualización
+        // React agrupará estas actualizaciones y el componente se renderizará con ambos cambios
         setUser(data);
+        
+        // Usar setTimeout para asegurar que React procese primero setUser antes de setLoading(false)
+        // Esto garantiza que cuando el componente se renderice con loading=false, user ya esté disponible
+        setTimeout(() => {
+          setLoading(false);
+          console.log('🔍 [DEBUG] setLoading(false) ejecutado - Usuario debería estar visible ahora');
+        }, 100); // Esperar un poco más para asegurar que el estado se actualice
+        
+        console.log('🔍 [DEBUG] setUser ejecutado, esperando para setLoading(false)');
       } else {
+        console.log('❌ Usuario no autenticado');
         setUser(null);
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Error verificando sesión:', error);
+      console.error('❌ Error verificando sesión:', error);
       setUser(null);
-    } finally {
       setLoading(false);
     }
   }, []);
@@ -34,29 +77,78 @@ const Home = () => {
     // Verificar si hay token temporal en la URL para intercambiar
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
+    const logoutStatus = urlParams.get('logout');
     const tempToken = urlParams.get('token');
     
     console.log('🔍 [DEBUG] Home.js useEffect ejecutado');
     console.log('🔍 [DEBUG] URL completa:', window.location.href);
     console.log('🔍 [DEBUG] loginStatus:', loginStatus);
+    console.log('🔍 [DEBUG] logoutStatus:', logoutStatus);
     console.log('🔍 [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
     console.log('🔍 [DEBUG] tempToken valor:', tempToken);
+    console.log('🔍 [DEBUG] tokenProcessedRef.current:', tokenProcessedRef.current);
+    
+    // Manejar logout exitoso
+    if (logoutStatus === 'success') {
+      console.log('✅ Logout exitoso, limpiando estado');
+      clearAuthToken();
+      setUser(null);
+      setLoading(false);
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    
+    // Si ya se procesó el token, solo verificar sesión si el token ya está en localStorage
+    // Esto previene que React StrictMode (que ejecuta useEffect dos veces) cause problemas
+    if (tokenProcessedRef.current) {
+      const existingToken = getAuthToken();
+      if (existingToken) {
+        console.log('✅ Token ya procesado y presente en localStorage, verificando sesión...');
+        // Mantener loading en true hasta que la sesión se verifique
+        checkSession();
+      } else {
+        console.log('⏳ Token siendo procesado, esperando a que se complete el intercambio...');
+        // Mantener loading en true mientras se procesa
+        setLoading(true);
+      }
+      return;
+    }
     
     if (loginStatus === 'success' && tempToken) {
       console.log('✅ Login exitoso! Intercambiando token temporal...');
+      tokenProcessedRef.current = true; // Marcar como procesado antes de hacer la llamada
+      // Asegurar que loading esté en true durante todo el proceso
+      setLoading(true);
       exchangeTokenAndSetCookie(tempToken);
     } else {
-      checkSession();
+      // Solo verificar sesión si hay token en localStorage (no durante el proceso de login)
+      const existingToken = getAuthToken();
+      if (existingToken) {
+        console.log('🔍 [DEBUG] Token encontrado en localStorage, verificando sesión...');
+        checkSession();
+      } else {
+        console.log('🔍 [DEBUG] No hay token en localStorage, esperando login...');
+        setLoading(false); // No hay sesión, dejar de cargar
+      }
     }
   }, [checkSession]);
   
   const exchangeTokenAndSetCookie = async (tempToken) => {
+    // Protección adicional: si ya se procesó, no hacer nada
+    if (tokenProcessedRef.current && !tempToken) {
+      console.log('⚠️ Token ya procesado, evitando llamada duplicada');
+      return;
+    }
+    
+    // Asegurar que loading esté activo durante todo el proceso
+    setLoading(true);
+    
     try {
       console.log('🔄 Intercambiando token temporal:', tempToken);
       // Intercambiar token temporal por JWT real
       const response = await fetch(`${config.BACKEND_URL || 'http://localhost:8080'}/api/auth/exchange-token`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -65,6 +157,14 @@ const Home = () => {
       
       if (!response.ok) {
         const errorData = await response.json();
+        // Si el error es 401 (token ya usado), no es crítico, solo loguear
+        if (response.status === 401) {
+          console.warn('⚠️ Token ya fue usado (401), probablemente procesado en otra ejecución');
+          // Limpiar URL y verificar sesión de todas formas
+          window.history.replaceState({}, document.title, window.location.pathname);
+          await checkSession();
+          return;
+        }
         throw new Error(errorData.error || 'Error intercambiando token');
       }
       
@@ -74,24 +174,45 @@ const Home = () => {
       
       console.log('✅ Token recibido del backend');
       
-      // Establecer cookie en el dominio del frontend
-      const domain = window.location.hostname;
-      const cookieString = `hcen_session=${jwtToken}; Path=/; Max-Age=${expires}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`;
-      document.cookie = cookieString;
+      // Guardar JWT en localStorage (funciona cross-domain)
+      setAuthToken(jwtToken);
       
-      console.log('✅ Token intercambiado y cookie establecida en dominio del frontend');
+      // Verificar que el token se guardó correctamente
+      const savedToken = getAuthToken();
+      if (!savedToken) {
+        throw new Error('Token no se guardó correctamente en localStorage');
+      }
+      console.log('🔍 [DEBUG] Token confirmado en localStorage:', savedToken ? 'SÍ' : 'NO');
+      console.log('🔍 [DEBUG] Token (primeros 50 chars):', savedToken ? savedToken.substring(0, 50) + '...' : 'null');
+      
+      console.log('✅ Token intercambiado y guardado en localStorage');
       
       // Limpiar URL inmediatamente (remover token de la barra de direcciones)
       window.history.replaceState({}, document.title, window.location.pathname);
       
-      // Verificar sesión
-      checkSession();
+      // Esperar un momento para asegurar que localStorage esté completamente sincronizado
+      // Esto previene que checkSession se ejecute antes de que el token esté disponible
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verificar sesión (el token ya está guardado y hemos esperado)
+      // Usar await para asegurar que se complete antes de continuar
+      console.log('🔍 [DEBUG] Llamando a checkSession después de guardar token');
+      await checkSession(); // Esperar a que se complete
+      console.log('🔍 [DEBUG] checkSession completado - El componente debería re-renderizarse automáticamente');
       
     } catch (error) {
       console.error('❌ Error intercambiando token:', error);
+      // Si el error es porque el token ya fue usado, no mostrar alert
+      if (error.message && error.message.includes('401')) {
+        console.warn('⚠️ Token ya procesado, continuando...');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        await checkSession();
+        return;
+      }
       alert('Error al completar el login: ' + error.message);
       window.history.replaceState({}, document.title, window.location.pathname);
       setLoading(false);
+      setUser(null);
     }
   };
 
@@ -100,13 +221,36 @@ const Home = () => {
     authUrl.searchParams.set('client_id', '890192');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'openid personal_info email');
-    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+    authUrl.searchParams.set('redirect_uri', config.CALLBACK_URL);
     authUrl.searchParams.set('state', Math.random().toString(36).substring(2, 15));
     
     window.location.href = authUrl.toString();
   };
 
-  if (loading) {
+  const handleLogout = async () => {
+    // Usar función centralizada de logout
+    await logout();
+  };
+
+  // Efecto para asegurar que si hay token, siempre tengamos el usuario cargado
+  // Esto previene que el componente se renderice mostrando "Iniciar sesión" cuando hay token
+  useEffect(() => {
+    const token = getAuthToken();
+    // Si hay token pero no hay usuario, mantener loading en true y verificar sesión
+    if (token && !user) {
+      console.log('🔍 [DEBUG] Token presente pero sin usuario, verificando sesión...');
+      setLoading(true);
+      checkSession();
+    }
+  }, [user, checkSession]);
+
+  // Si estamos cargando O si hay token pero no hay usuario todavía, mostrar loading
+  // Esto previene que se muestre "Iniciar sesión" durante el proceso de login
+  // IMPORTANTE: Esta verificación se hace en el render para evitar el flash de "Iniciar sesión"
+  const token = getAuthToken();
+  const shouldShowLoading = loading || (token && !user);
+  
+  if (shouldShowLoading) {
     return (
       <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center'}}>
         <div className="container">
@@ -121,6 +265,19 @@ const Home = () => {
       </div>
     );
   }
+
+  // Log para debug del estado de user en cada render
+  console.log('🔍 [DEBUG] Render Home - user:', user ? `SÍ (${user.nombre || user.uid})` : 'NO');
+  console.log('🔍 [DEBUG] Render Home - loading:', loading);
+  console.log('🔍 [DEBUG] Render Home - user.authenticated:', user?.authenticated);
+
+  // Calcular si el usuario está autenticado
+  // Si hay token pero no hay usuario todavía, NO considerar autenticado (mostrará loading)
+  // Esto previene que se muestre "Iniciar sesión" cuando hay token pero el usuario aún se está cargando
+  const tokenForAuth = getAuthToken();
+  const isAuthenticated = user && user.authenticated && (!tokenForAuth || user); // Si hay token, necesitamos usuario
+  console.log('🔍 [DEBUG] Render Home - isAuthenticated:', isAuthenticated);
+  console.log('🔍 [DEBUG] Render Home - tokenForAuth:', tokenForAuth ? 'SÍ' : 'NO');
 
   return (
     <div style={{minHeight: '100vh', backgroundColor: '#f8fafc'}}>
@@ -181,7 +338,7 @@ const Home = () => {
                     }}>
                       Accede de forma segura a tu información médica y mantén un control completo de tu salud
                     </p>
-                    {user ? (
+                    {isAuthenticated ? (
                       <a href="/historia-clinica" style={{
                         padding: '18px 40px',
                         fontSize: '16px',

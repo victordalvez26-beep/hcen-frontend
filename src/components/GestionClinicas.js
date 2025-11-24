@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import config from '../config';
+import { get, post, put, del } from '../services/apiClient';
 
 const GestionClinicas = () => {
   const [nodos, setNodos] = useState([]);
@@ -53,13 +54,7 @@ const GestionClinicas = () => {
   const loadNodos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/nodos');
 
       // Leer el cuerpo de la respuesta una sola vez
       const contentType = response.headers.get('content-type') || '';
@@ -127,14 +122,7 @@ const GestionClinicas = () => {
           return;
         }
 
-        const response = await fetch(`${config.BACKEND_URL}/api/nodos/${editingRUT}`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(formData)
-        });
+        const response = await put(`/api/nodos/${editingRUT}`, formData);
 
         // Leer el cuerpo de la respuesta una sola vez
         const contentType = response.headers.get('content-type') || '';
@@ -167,14 +155,7 @@ const GestionClinicas = () => {
           return;
         }
       } else {
-        const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(formData)
-        });
+        const response = await post('/api/nodos', formData);
 
         // Leer el cuerpo de la respuesta una sola vez
         const contentType = response.headers.get('content-type') || '';
@@ -259,10 +240,7 @@ const GestionClinicas = () => {
     }
 
     try {
-      const response = await fetch(`${config.BACKEND_URL}/api/nodos/${identifier}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      const response = await del(`/api/nodos/${identifier}`);
 
       if (response.ok || response.status === 204) {
         showMessage('Nodo periférico eliminado exitosamente', 'success');

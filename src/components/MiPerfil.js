@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import config from '../config';
+import { fetchWithAuth, get, post, del } from '../services/apiClient';
 
 const MiPerfil = () => {
   const [user, setUser] = useState(null);
@@ -137,14 +138,8 @@ const MiPerfil = () => {
       }
       
       if (documentoPaciente) {
-        fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        .then(response => response.ok ? response.json() : [])
+        get(`/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`)
+        .then(response => response.ok ? response.json() : Promise.resolve([]))
         .then(data => setSolicitudesAcceso(data || []))
         .catch(error => {
           console.error('Error cargando contador de solicitudes:', error);
@@ -192,13 +187,7 @@ const MiPerfil = () => {
       }
 
       // Usar el endpoint del servicio de políticas para obtener registros de acceso por paciente
-      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/registros/paciente/${userDocumento}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get(`/hcen-politicas-service/api/registros/paciente/${userDocumento}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -242,13 +231,7 @@ const MiPerfil = () => {
       }
 
       // Obtener solicitudes pendientes del paciente
-      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get(`/hcen-politicas-service/api/solicitudes/paciente/${documentoPaciente}/pendientes`);
 
       if (response.ok) {
         const data = await response.json();
@@ -267,16 +250,9 @@ const MiPerfil = () => {
 
   const handleAprobarSolicitud = async (solicitudId) => {
     try {
-      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/${solicitudId}/aprobar`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          resueltoPor: user?.uid || user?.email || 'Paciente',
-          comentario: 'Solicitud aprobada por el paciente'
-        })
+      const response = await post(`/hcen-politicas-service/api/solicitudes/${solicitudId}/aprobar`, {
+        resueltoPor: user?.uid || user?.email || 'Paciente',
+        comentario: 'Solicitud aprobada por el paciente'
       });
 
       if (response.ok) {
@@ -304,16 +280,9 @@ const MiPerfil = () => {
     }
 
     try {
-      const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/solicitudes/${solicitudId}/rechazar`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          resueltoPor: user?.uid || user?.email || 'Paciente',
-          comentario: comentario || 'Solicitud rechazada por el paciente'
-        })
+      const response = await post(`/hcen-politicas-service/api/solicitudes/${solicitudId}/rechazar`, {
+        resueltoPor: user?.uid || user?.email || 'Paciente',
+        comentario: comentario || 'Solicitud rechazada por el paciente'
       });
 
       if (response.ok) {
@@ -334,13 +303,7 @@ const MiPerfil = () => {
   const loadClinicas = async () => {
     try {
       setLoadingClinicas(true);
-      const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/nodos');
 
       if (response.ok) {
         const data = await response.json();
@@ -367,13 +330,7 @@ const MiPerfil = () => {
 
   const checkSession = async () => {
     try {
-      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/auth/session');
       
       const data = await response.json();
       
@@ -393,13 +350,7 @@ const MiPerfil = () => {
   const loadPoliticas = async () => {
     try {
       setLoadingPoliticas(true);
-      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/documentos/politicas');
 
       if (response.ok) {
         const data = await response.json();
@@ -515,14 +466,7 @@ const MiPerfil = () => {
       console.log('Enviando request a:', `${config.BACKEND_URL}/api/documentos/politicas`);
       console.log('Body:', JSON.stringify(politicaData));
       
-      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(politicaData)
-      });
+      const response = await post('/api/documentos/politicas', politicaData);
 
       console.log('Response status:', response.status);
       
@@ -558,13 +502,7 @@ const MiPerfil = () => {
     }
 
     try {
-      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await del(`/api/documentos/politicas/${id}`);
 
       if (response.ok) {
         setMessage('Política eliminada exitosamente');

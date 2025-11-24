@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { get, post, del } from '../services/apiClient';
 
 const GestionPoliticas = () => {
   const [politicas, setPoliticas] = useState([]);
@@ -32,13 +33,7 @@ const GestionPoliticas = () => {
   const loadProfesionales = async () => {
     try {
       setLoadingProfesionales(true);
-      const response = await fetch('http://localhost:8080/api/users/profesionales', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/users/profesionales');
 
       if (response.ok) {
         const data = await response.json();
@@ -56,13 +51,7 @@ const GestionPoliticas = () => {
   const loadClinicas = async () => {
     try {
       setLoadingClinicas(true);
-      const response = await fetch('http://localhost:8080/api/prestadores-salud', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/prestadores-salud');
 
       if (response.ok) {
         const data = await response.json();
@@ -80,13 +69,7 @@ const GestionPoliticas = () => {
   const loadPoliticas = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/documentos/politicas', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/documentos/politicas');
 
       if (response.ok) {
         const data = await response.json();
@@ -159,13 +142,7 @@ const GestionPoliticas = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/documentos/politicas/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await del(`/api/documentos/politicas/${id}`);
 
       if (response.ok) {
         setMessage('Política eliminada exitosamente');

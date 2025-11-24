@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { post } from '../services/apiClient';
 
 /**
  * Página de registro para Prestadores de Salud.
@@ -55,12 +56,7 @@ function RegistroPrestador() {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8080/api/prestadores-salud/completar-registro', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const response = await post('/api/prestadores-salud/completar-registro', {
           token: token,
           rut: formData.rut,
           url: formData.url,
@@ -68,7 +64,6 @@ function RegistroPrestador() {
           localidad: formData.localidad,
           direccion: formData.direccion,
           telefono: formData.telefono
-        })
       });
       
       if (response.ok) {

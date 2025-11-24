@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import PerfilUsuario from './PerfilUsuario';
 import GestionClinicas from './GestionClinicas';
 import config from '../config';
+import { setAuthToken, fetchWithAuth, get, logout } from '../services/apiClient';
 
 const Login = () => {
   const [user, setUser] = useState(null);
@@ -49,7 +50,6 @@ const Login = () => {
       // Intercambiar token temporal por JWT real
       const response = await fetch(`${config.BACKEND_URL}/api/auth/exchange-token`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -63,14 +63,19 @@ const Login = () => {
       
       const data = await response.json();
       const jwtToken = data.jwt;
-      const expires = data.expires || 86400; // 24 horas por defecto
       
-      // Establecer cookie en el dominio del frontend
+      // Guardar JWT en localStorage (funciona cross-domain)
+      setAuthToken(jwtToken);
+      
+      // TODO: En el futuro, si volvemos a usar cookies, descomentar esto
+      /*
+      const expires = data.expires || 86400; // 24 horas por defecto
       const domain = window.location.hostname;
       const cookieString = `hcen_session=${jwtToken}; Path=/; Max-Age=${expires}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`;
       document.cookie = cookieString;
+      */
       
-      console.log('Token intercambiado y cookie establecida en dominio del frontend');
+      console.log('Token intercambiado y guardado en localStorage');
       
       // Limpiar URL inmediatamente (remover token de la barra de direcciones)
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -88,13 +93,7 @@ const Login = () => {
   
   const checkSession = async () => {
     try {
-      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/auth/session');
       
       const data = await response.json();
       
@@ -103,13 +102,7 @@ const Login = () => {
         
         // Obtener información completa del usuario incluyendo el rol
         try {
-          const profileResponse = await fetch(`${config.BACKEND_URL}/api/users/profile`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
+          const profileResponse = await get('/api/users/profile');
           
           if (profileResponse.ok) {
             const profileData = await profileResponse.json();
@@ -147,8 +140,8 @@ const Login = () => {
     window.location.href = authUrl.toString();
   };
 
-  const handleLogout = () => {
-    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
+  const handleLogout = async () => {
+    await logout();
   };
 
   if (loading) {

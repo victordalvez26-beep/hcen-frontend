@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { post } from '../services/apiClient';
 
 const CompleteProfile = () => {
   const [loading, setLoading] = useState(false);
@@ -63,14 +64,7 @@ const CompleteProfile = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8080/api/users/complete-profile', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
+      const response = await post('/api/users/complete-profile', formData);
 
       const data = await response.json();
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
+import { fetchWithAuth, logout } from '../services/apiClient';
 
 const HistoriaClinica = () => {
   const navigate = useNavigate();
@@ -32,12 +33,8 @@ const HistoriaClinica = () => {
   
   const checkSession = async () => {
     try {
-      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
+      const response = await fetchWithAuth('/api/auth/session', {
         method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
       
       const data = await response.json();
@@ -69,12 +66,8 @@ const HistoriaClinica = () => {
       const url = `${config.BACKEND_URL}/api/metadatos-documento/usuario`;
       console.log('🌐 URL:', url);
       
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
 
       console.log('📡 Response status:', response.status);
@@ -114,8 +107,8 @@ const HistoriaClinica = () => {
     }
   };
 
-  const handleLogout = () => {
-    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
+  const handleLogout = async () => {
+    await logout();
   };
 
   const handleFiltroChange = (campo, valor) => {
@@ -157,6 +150,31 @@ const HistoriaClinica = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleDownload = async (documentoId, categoria) => {
+    try {
+      const response = await fetchWithAuth(`/api/metadatos-documento/${documentoId}/descargar`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al descargar el documento');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${categoria || 'documento'}-${documentoId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error descargando documento:', error);
+      alert('Error al descargar el documento: ' + error.message);
+    }
   };
 
   if (loading) {
@@ -632,9 +650,8 @@ const HistoriaClinica = () => {
                             </div>
                             <div style={{display: 'flex', gap: '10px'}}>
                               {documento.id && documento.uriDocumento && documento.uriDocumento.includes('localhost:8081') ? (
-                                <a
-                                  href={`${config.BACKEND_URL}/api/metadatos-documento/${documento.id}/descargar`}
-                                  download={`${documento.categoria || 'documento'}-${documento.id}.pdf`}
+                                <button
+                                  onClick={() => handleDownload(documento.id, documento.categoria)}
                                   className="boxed-btn3" 
                                   style={{
                                     padding: '8px 20px',
@@ -660,7 +677,7 @@ const HistoriaClinica = () => {
                                 >
                                   <i className="flaticon-download" style={{marginRight: '4px'}}></i>
                                   Descargar PDF
-                                </a>
+                                </button>
                               ) : (
                                 <span
                                   className="boxed-btn3" 

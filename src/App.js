@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Home from './components/Home';
 import HistoriaClinica from './components/HistoriaClinica';
@@ -13,6 +13,7 @@ import ReportesAdmin from './components/ReportesAdmin';
 import RegistroPrestador from './components/RegistroPrestador';
 import Contacto from './components/Contacto';
 import Header from './components/Header';
+import { fetchWithAuth, getAuthToken } from './services/apiClient';
 import './App.css';
 import './styles/colors.css';
 import './styles/components.css';
@@ -22,34 +23,91 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-  
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      // Asegurar que loading esté activo mientras verificamos
+      setLoading(true);
+      
+      // Verificar si hay token en localStorage
+      const token = getAuthToken();
+      
+      // Si no hay token, no hacer la llamada
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      
+      // Usar helper para requests autenticados (agrega Authorization header automáticamente)
+      const response = await fetchWithAuth('/api/auth/session', {
         method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
       
       const data = await response.json();
       
       if (data.authenticated) {
+        console.log('✅ [App.js] Usuario autenticado:', data.nombre);
         setUser(data);
       } else {
+        console.log('❌ [App.js] Usuario no autenticado');
         setUser(null);
       }
     } catch (error) {
-      console.error('Error verificando sesión:', error);
+      console.error('❌ [App.js] Error verificando sesión:', error);
       setUser(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Verificar parámetros de la URL primero antes de verificar sesión
+    const urlParams = new URLSearchParams(window.location.search);
+    const logoutStatus = urlParams.get('logout');
+    const loginStatus = urlParams.get('login');
+    const tempToken = urlParams.get('token');
+    
+    // Si hay logout=success, NO verificar sesión (el token ya fue eliminado)
+    if (logoutStatus === 'success') {
+      console.log('🔍 [App.js] Logout detectado, no verificando sesión');
+      setUser(null);
+      setLoading(false);
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    
+    // Si hay proceso de login en curso, NO verificar sesión inmediatamente
+    // Home.js se encargará de intercambiar el token y verificar la sesión
+    // App.js solo mantendrá loading=true y esperará a que el token esté disponible
+    if (loginStatus === 'success' && tempToken) {
+      console.log('🔍 [App.js] Login en progreso, Home.js manejará el intercambio de token');
+      setLoading(true);
+      
+      // Esperar a que el token esté en localStorage antes de verificar sesión
+      // Home.js lo guardará después del intercambio
+      const waitForToken = async () => {
+        for (let i = 0; i < 30; i++) { // Máximo 3 segundos (30 * 100ms)
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const token = getAuthToken();
+          if (token) {
+            console.log('🔍 [App.js] Token encontrado en localStorage, verificando sesión...');
+            await checkSession();
+            return;
+          }
+        }
+        // Timeout: si después de 3 segundos no hay token, verificar de todas formas
+        console.warn('⚠️ [App.js] Timeout esperando token');
+        await checkSession();
+      };
+      
+      waitForToken();
+      return;
+    }
+    
+    // Verificar sesión normalmente solo si no hay proceso de login
+    checkSession();
+  }, [checkSession]);
 
   if (loading) {
     return (

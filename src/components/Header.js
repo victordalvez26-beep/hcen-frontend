@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logout } from '../services/apiClient';
 
 const Header = ({ user, activePage = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -361,8 +362,12 @@ const Header = ({ user, activePage = '' }) => {
             }}>
               {user ? (
                 <a 
-                  href="http://localhost:8080/api/auth/logout" 
-                  onClick={() => isMobile && setIsMobileMenuOpen(false)}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (isMobile) setIsMobileMenuOpen(false);
+                    logout();
+                  }}
                   style={{
                     padding: isMobile ? '12px 20px' : '10px 20px',
                     backgroundColor: '#dc2626',

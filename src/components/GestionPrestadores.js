@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { get, post } from '../services/apiClient';
 
 /**
  * Componente para gestionar Prestadores de Salud.
@@ -23,9 +24,7 @@ function GestionPrestadores() {
   const loadPrestadores = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/prestadores-salud', {
-        credentials: 'include'
-      });
+      const response = await get('/api/prestadores-salud');
       
       if (response.ok) {
         const data = await response.json();
@@ -49,12 +48,7 @@ function GestionPrestadores() {
     e.preventDefault();
     
     try {
-      const response = await fetch('http://localhost:8080/api/prestadores-salud/invitar', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      const response = await post('/api/prestadores-salud/invitar', formData);
       
       if (response.ok) {
         mostrarMensaje('Invitación enviada exitosamente. El prestador recibirá un email para completar su registro.', 'success');

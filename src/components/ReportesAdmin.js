@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import config from '../config';
+import { get } from '../services/apiClient';
 
-const API_BASE = 'http://localhost:8080/api/reportes';
+const API_BASE = `${config.BACKEND_URL}/api/reportes`;
 
 const formatDate = (date) => {
   const year = date.getFullYear();
@@ -37,13 +39,15 @@ const ReportesAdmin = () => {
 
   const fetchJson = async (url) => {
     try {
-      const response = await fetch(url, {
+      // Si la URL es absoluta, usar directamente; si es relativa, usar get helper
+      const response = url.startsWith('http') 
+        ? await fetch(url, {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         }
-      });
+          })
+        : await get(url);
 
       // Leer el cuerpo de la respuesta una sola vez
       const contentType = response.headers.get('content-type') || '';

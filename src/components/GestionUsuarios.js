@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { get, put } from '../services/apiClient';
 
 const GestionUsuarios = () => {
   const [usuarios, setUsuarios] = useState([]);
@@ -17,13 +18,7 @@ const GestionUsuarios = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/users/all', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await get('/api/users/all');
 
       if (response.ok) {
         const data = await response.json();
@@ -60,16 +55,9 @@ const GestionUsuarios = () => {
     if (!selectedUser || !newRole) return;
 
     try {
-      const response = await fetch('http://localhost:8080/api/users/role', {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const response = await put('/api/users/role', {
           uid: selectedUser.uid,
           rol: newRole
-        })
       });
 
       if (response.ok) {
