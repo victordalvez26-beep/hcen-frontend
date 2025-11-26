@@ -17,6 +17,8 @@ const GestionClinicas = () => {
   const [messageType, setMessageType] = useState('');
   const [showActivationModal, setShowActivationModal] = useState(false);
   const [activationData, setActivationData] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmData, setConfirmData] = useState(null);
 
   const showMessage = useCallback((msg, type) => {
     setMessage(msg);
@@ -227,7 +229,7 @@ const GestionClinicas = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (nodo) => {
+  const handleDelete = (nodo) => {
     if (!nodo) {
       showMessage('Error: Nodo no válido', 'error');
       return;
@@ -235,30 +237,82 @@ const GestionClinicas = () => {
 
     const identifier = nodo.rut || nodo.id;
     if (!identifier) {
-      showMessage('Error: No se puede identificar el nodo a eliminar', 'error');
+      showMessage('Error: No se puede identificar el nodo a inhabilitar', 'error');
       return;
     }
 
-    if (!window.confirm('¿Está seguro de que desea eliminar este nodo periférico?')) {
+    setConfirmData({
+      title: 'Inhabilitar Clínica',
+      message: '¿Está seguro de que desea inhabilitar esta clínica? La clínica quedará inactiva y no se podrá acceder al tenant.',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`${config.BACKEND_URL}/api/nodos/${identifier}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok || response.status === 200 || response.status === 204) {
+            showMessage('Clínica inhabilitada exitosamente', 'success');
+            loadNodos();
+          } else {
+            const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+            showMessage('Error inhabilitando clínica: ' + (errorData.error || 'Error desconocido'), 'error');
+          }
+        } catch (error) {
+          console.error('Error inhabilitando clínica:', error);
+          showMessage('Error de conexión al inhabilitar', 'error');
+        }
+      },
+      confirmText: 'Inhabilitar',
+      confirmColor: '#ef4444'
+    });
+    setShowConfirmModal(true);
+  };
+
+  const handleActivate = (nodo) => {
+    if (!nodo) {
+      showMessage('Error: Nodo no válido', 'error');
       return;
     }
 
-    try {
-      const response = await fetch(`${config.BACKEND_URL}/api/nodos/${identifier}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
-      if (response.ok || response.status === 204) {
-        showMessage('Nodo periférico eliminado exitosamente', 'success');
-        loadNodos();
-      } else {
-        showMessage('Error eliminando nodo', 'error');
-      }
-    } catch (error) {
-      console.error('Error eliminando nodo:', error);
-      showMessage('Error de conexión al eliminar', 'error');
+    const identifier = nodo.rut || nodo.id;
+    if (!identifier) {
+      showMessage('Error: No se puede identificar el nodo a activar', 'error');
+      return;
     }
+
+    setConfirmData({
+      title: 'Reactivar Clínica',
+      message: '¿Está seguro de que desea reactivar esta clínica? La clínica volverá a estar activa y se podrá acceder al tenant.',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`${config.BACKEND_URL}/api/nodos/${identifier}/activar`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok || response.status === 200) {
+            showMessage('Clínica reactivada exitosamente', 'success');
+            loadNodos();
+          } else {
+            const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+            showMessage('Error reactivando clínica: ' + (errorData.error || 'Error desconocido'), 'error');
+          }
+        } catch (error) {
+          console.error('Error reactivando clínica:', error);
+          showMessage('Error de conexión al reactivar', 'error');
+        }
+      },
+      confirmText: 'Activar',
+      confirmColor: '#10b981'
+    });
+    setShowConfirmModal(true);
   };
 
   const resetForm = () => {
@@ -561,21 +615,39 @@ const GestionClinicas = () => {
                                   >
                                     Editar
                                   </button>
-                                  <button
-                                    style={{
-                                      backgroundColor: '#ef4444',
-                                      color: '#ffffff',
-                                      border: 'none',
-                                      borderRadius: '6px',
-                                      padding: '6px 12px',
-                                      fontSize: '13px',
-                                      fontWeight: '500',
-                                      cursor: 'pointer'
-                                    }}
-                                    onClick={() => handleDelete(nodo)}
-                                  >
-                                    Eliminar
-                                  </button>
+                                  {nodo.estado === 'INACTIVO' ? (
+                                    <button
+                                      style={{
+                                        backgroundColor: '#10b981',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        padding: '6px 12px',
+                                        fontSize: '13px',
+                                        fontWeight: '500',
+                                        cursor: 'pointer'
+                                      }}
+                                      onClick={() => handleActivate(nodo)}
+                                    >
+                                      Activar
+                                    </button>
+                                  ) : (
+                                    <button
+                                      style={{
+                                        backgroundColor: '#ef4444',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        padding: '6px 12px',
+                                        fontSize: '13px',
+                                        fontWeight: '500',
+                                        cursor: 'pointer'
+                                      }}
+                                      onClick={() => handleDelete(nodo)}
+                                    >
+                                      Inhabilitar
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -835,6 +907,149 @@ const GestionClinicas = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Confirmación */}
+      {showConfirmModal && confirmData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1050,
+          animation: 'fadeIn 0.2s ease-in'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            padding: '0',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            animation: 'slideIn 0.3s ease-out'
+          }}>
+            <div style={{
+              padding: '24px 30px',
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <h5 style={{
+                margin: 0,
+                color: '#111827',
+                fontSize: '20px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <i className="fa fa-exclamation-triangle" style={{color: '#f59e0b', fontSize: '24px'}}></i>
+                {confirmData.title}
+              </h5>
+            </div>
+            <div style={{
+              padding: '24px 30px'
+            }}>
+              <p style={{
+                margin: 0,
+                color: '#6b7280',
+                fontSize: '15px',
+                lineHeight: '1.6'
+              }}>
+                {confirmData.message}
+              </p>
+            </div>
+            <div style={{
+              padding: '20px 30px',
+              backgroundColor: '#f8fafc',
+              borderBottomLeftRadius: '12px',
+              borderBottomRightRadius: '12px',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setConfirmData(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #d1d5db',
+                  color: '#374151',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#ffffff';
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmData.onConfirm) {
+                    confirmData.onConfirm();
+                  }
+                  setShowConfirmModal(false);
+                  setConfirmData(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  backgroundColor: confirmData.confirmColor || '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.opacity = '0.9';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.opacity = '1';
+                }}
+              >
+                {confirmData.confirmText || 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </>
   );
 };
