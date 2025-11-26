@@ -62,15 +62,10 @@ const Login = () => {
       }
       
       const data = await response.json();
-      const jwtToken = data.jwt;
-      const expires = data.expires || 86400; // 24 horas por defecto
+      // El backend ya setea la cookie cross-site, no necesitamos hacerlo aquí
+      // El JWT se puede recibir pero no se usa para setear cookie propia
       
-      // Establecer cookie en el dominio del frontend
-      const domain = window.location.hostname;
-      const cookieString = `hcen_session=${jwtToken}; Path=/; Max-Age=${expires}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`;
-      document.cookie = cookieString;
-      
-      console.log('Token intercambiado y cookie establecida en dominio del frontend');
+      console.log('Token intercambiado - Cookie establecida por el backend (cross-site)');
       
       // Limpiar URL inmediatamente (remover token de la barra de direcciones)
       window.history.replaceState({}, document.title, window.location.pathname);
