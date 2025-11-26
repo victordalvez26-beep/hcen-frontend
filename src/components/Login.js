@@ -20,15 +20,24 @@ const Login = () => {
     console.log('🔍 [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
     console.log('🔍 [DEBUG] tempToken valor:', tempToken);
     
-    if (loginStatus === 'success' && tempToken) {
+    // Verificar si ya se procesó el token (evitar llamadas duplicadas)
+    const tokenProcessed = sessionStorage.getItem('token_exchange_processed');
+    
+    if (loginStatus === 'success' && tempToken && !tokenProcessed) {
       console.log('✅ Login exitoso! Intercambiando token temporal...');
+      sessionStorage.setItem('token_exchange_processed', 'true');
       exchangeTokenAndSetCookie(tempToken);
+    } else if (loginStatus === 'success' && tempToken && tokenProcessed) {
+      console.log('⚠️ Token ya fue procesado, limpiando URL...');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      checkSession();
     } else if (loginStatus === 'success') {
       console.log('Login exitoso! Verificando sesión...');
       window.history.replaceState({}, document.title, window.location.pathname);
       checkSession();
     } else if (logoutStatus === 'success') {
       console.log('Logout exitoso');
+      sessionStorage.removeItem('token_exchange_processed');
       setUser(null);
       setLoading(false);
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -38,6 +47,7 @@ const Login = () => {
     
     if (error) {
       console.error('Error en autenticación:', error);
+      sessionStorage.removeItem('token_exchange_processed');
       alert('Error en la autenticación: ' + error);
       window.history.replaceState({}, document.title, window.location.pathname);
       setLoading(false);
@@ -45,7 +55,17 @@ const Login = () => {
   }, []);
   
   const exchangeTokenAndSetCookie = async (tempToken) => {
+    // Validar que el token no esté vacío
+    if (!tempToken || tempToken.trim() === '') {
+      console.error('❌ Token temporal vacío o inválido');
+      sessionStorage.removeItem('token_exchange_processed');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      checkSession();
+      return;
+    }
+
     try {
+      console.log('🔄 Intercambiando token temporal:', tempToken.substring(0, 10) + '...');
       // Intercambiar token temporal por JWT real
       const response = await fetch(`${config.BACKEND_URL}/api/auth/exchange-token`, {
         method: 'POST',
@@ -53,31 +73,48 @@ const Login = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ tempToken: tempToken })
+        body: JSON.stringify({ token: tempToken })
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error intercambiando token');
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        // Si el token ya fue usado o expiró, limpiar el flag para permitir reintento
+        if (response.status === 400 || response.status === 401) {
+          sessionStorage.removeItem('token_exchange_processed');
+        }
+        // El exchange es opcional - la cookie ya está seteada por el callback
+        // Si falla, simplemente verificar sesión (la cookie ya está)
+        console.warn('⚠️ Exchange de token falló, pero la cookie JWT ya está seteada por el callback');
+        console.warn('⚠️ Continuando con verificación de sesión...');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        checkSession();
+        return; // No lanzar error, solo continuar
       }
       
       const data = await response.json();
       // El backend ya setea la cookie cross-site, no necesitamos hacerlo aquí
       // El JWT se puede recibir pero no se usa para setear cookie propia
       
-      console.log('Token intercambiado - Cookie establecida por el backend (cross-site)');
+      console.log('✅ Token intercambiado - Cookie establecida por el backend (cross-site)');
       
       // Limpiar URL inmediatamente (remover token de la barra de direcciones)
       window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Limpiar el flag de procesamiento
+      sessionStorage.removeItem('token_exchange_processed');
       
       // Verificar sesión
       checkSession();
       
     } catch (error) {
-      console.error('Error intercambiando token:', error);
-      alert('Error al completar el login: ' + error.message);
+      console.error('❌ Error intercambiando token:', error);
+      // El exchange es opcional - la cookie ya está seteada por el callback
+      // Si falla, simplemente verificar sesión (la cookie ya está)
+      console.warn('⚠️ Exchange de token falló, pero la cookie JWT ya está seteada por el callback');
+      console.warn('⚠️ Continuando con verificación de sesión...');
       window.history.replaceState({}, document.title, window.location.pathname);
-      setLoading(false);
+      checkSession();
+      // No mostrar alert - la cookie ya está y el login funcionará
     }
   };
   

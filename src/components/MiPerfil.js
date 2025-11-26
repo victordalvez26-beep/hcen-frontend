@@ -183,13 +183,25 @@ const MiPerfil = () => {
     try {
       setLoadingAccesos(true);
       // Obtener registros de acceso del paciente actual
-      const userDocumento = user?.codDocum || user?.documento;
+      let userDocumento = user?.codDocum || user?.documento;
+      
+      // Si no hay codDocum, intentar extraerlo del UID (formato: uy-ci-XXXXXXXX)
+      if (!userDocumento && user?.uid) {
+        const match = user.uid.match(/uy-ci-(\d+)/);
+        if (match && match[1]) {
+          userDocumento = match[1];
+          console.log(`📋 CI extraído del UID: ${userDocumento}`);
+        }
+      }
       
       if (!userDocumento) {
+        console.warn('⚠️ No se pudo obtener el documento del usuario. User object:', user);
         setAccesosHistoria([]);
         setLoadingAccesos(false);
         return;
       }
+
+      console.log(`🔍 Cargando accesos para paciente CI: ${userDocumento}`);
 
       // Usar el endpoint del servicio de políticas para obtener registros de acceso por paciente
       const response = await fetch(`${config.BACKEND_URL}/hcen-politicas-service/api/registros/paciente/${userDocumento}`, {
@@ -200,14 +212,18 @@ const MiPerfil = () => {
         }
       });
 
+      console.log(`📡 Respuesta de accesos - Status: ${response.status}`);
+
       if (response.ok) {
         const data = await response.json();
+        console.log(`✅ Accesos recibidos:`, data);
         // Ordenar por fecha descendente (más recientes primero)
         const accesosOrdenados = Array.isArray(data) ? data.sort((a, b) => {
           const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
           const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
           return fechaB - fechaA;
         }) : [];
+        console.log(`📊 Total de accesos ordenados: ${accesosOrdenados.length}`);
         setAccesosHistoria(accesosOrdenados);
       } else {
         console.error('Error cargando accesos:', response.status, response.statusText);
@@ -1329,9 +1345,10 @@ const MiPerfil = () => {
                           <thead>
                             <tr style={{backgroundColor: '#f8fafc'}}>
                               <th style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#374151', fontWeight: '600'}}>Fecha</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Clínica</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Profesional</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Especialidad</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Tipo Documento</th>
-                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Documento ID</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Estado</th>
                               <th style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', color: '#374151', fontWeight: '600'}}>Referencia</th>
                             </tr>
@@ -1361,25 +1378,25 @@ const MiPerfil = () => {
                                     {fechaFormateada}
                                   </td>
                                   <td style={{padding: '15px 20px', color: '#374151'}}>
-                                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                      <span className="badge" style={{
-                                        backgroundColor: '#8b5cf6',
-                                        color: '#ffffff',
-                                        padding: '6px 10px',
-                                        borderRadius: '6px',
-                                        fontWeight: '600',
-                                        fontSize: '12px'
-                                      }}>
-                                        <i className="fa fa-user-md" style={{marginRight: '5px'}}></i>
-                                        {acceso.profesionalId || 'N/A'}
+                                    {acceso.clinicaId ? `Clínica ${acceso.clinicaId}` : '-'}
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151'}}>
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
+                                      <span style={{fontWeight: '600', color: '#111827'}}>
+                                        {acceso.nombreProfesional || acceso.profesionalId || 'N/A'}
                                       </span>
+                                      {acceso.profesionalId && acceso.nombreProfesional && acceso.profesionalId !== acceso.nombreProfesional && (
+                                        <span style={{fontSize: '11px', color: '#9ca3af'}}>
+                                          ({acceso.profesionalId})
+                                        </span>
+                                      )}
                                     </div>
+                                  </td>
+                                  <td style={{padding: '15px 20px', color: '#374151', fontSize: '13px'}}>
+                                    {acceso.especialidad || '-'}
                                   </td>
                                   <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace', fontSize: '13px'}}>
                                     {acceso.tipoDocumento || '-'}
-                                  </td>
-                                  <td style={{padding: '15px 20px', color: '#6b7280', fontFamily: 'monospace', fontSize: '12px'}}>
-                                    {acceso.documentoId ? (acceso.documentoId.length > 20 ? acceso.documentoId.substring(0, 20) + '...' : acceso.documentoId) : '-'}
                                   </td>
                                   <td style={{padding: '15px 20px'}}>
                                     {acceso.exito ? (
@@ -1425,7 +1442,7 @@ const MiPerfil = () => {
                             })}
                             {accesosHistoria.length === 0 && (
                               <tr>
-                                <td colSpan="6" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
+                                <td colSpan="7" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
                                   <i className="fa fa-file-medical" style={{fontSize: '48px', marginBottom: '15px', opacity: '0.3'}}></i>
                                   <div style={{fontSize: '18px', fontWeight: '500'}}>No se encontraron accesos</div>
                                   <div style={{fontSize: '14px', marginTop: '5px'}}>
