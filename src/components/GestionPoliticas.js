@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 
 const GestionPoliticas = () => {
   const [politicas, setPoliticas] = useState([]);
@@ -32,7 +33,7 @@ const GestionPoliticas = () => {
   const loadProfesionales = async () => {
     try {
       setLoadingProfesionales(true);
-      const response = await fetch('http://localhost:8080/api/users/profesionales', {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/profesionales`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -56,7 +57,7 @@ const GestionPoliticas = () => {
   const loadClinicas = async () => {
     try {
       setLoadingClinicas(true);
-      const response = await fetch('http://localhost:8080/api/prestadores-salud', {
+      const response = await fetch(`${config.BACKEND_URL}/api/prestadores-salud`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -80,7 +81,7 @@ const GestionPoliticas = () => {
   const loadPoliticas = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/documentos/politicas', {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -126,7 +127,7 @@ const GestionPoliticas = () => {
     // Si es 'profesional', ya tiene profesionalAutorizado
     
     try {
-      const response = await fetch('http://localhost:8080/api/documentos/politicas', {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -159,7 +160,7 @@ const GestionPoliticas = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/documentos/politicas/${id}`, {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
