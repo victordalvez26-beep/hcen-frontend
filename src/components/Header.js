@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 
 const Header = ({ user, activePage = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -398,7 +399,7 @@ const Header = ({ user, activePage = '' }) => {
                     authUrl.searchParams.set('client_id', '890192');
                     authUrl.searchParams.set('response_type', 'code');
                     authUrl.searchParams.set('scope', 'openid personal_info email');
-                    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+                    authUrl.searchParams.set('redirect_uri', config.CALLBACK_URL);
                     authUrl.searchParams.set('state', Math.random().toString(36).substring(2, 15));
                     window.location.href = authUrl.toString();
                   }} 
