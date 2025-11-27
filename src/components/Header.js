@@ -362,7 +362,7 @@ const Header = ({ user, activePage = '' }) => {
             }}>
               {user ? (
                 <a 
-                  href="http://localhost:8080/api/auth/logout" 
+                  href={`${config.BACKEND_URL}/api/auth/logout`}
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
                   style={{
                     padding: isMobile ? '12px 20px' : '10px 20px',
