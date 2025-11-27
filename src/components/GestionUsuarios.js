@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 
 const GestionUsuarios = () => {
   const [usuarios, setUsuarios] = useState([]);
@@ -17,7 +18,7 @@ const GestionUsuarios = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/users/all', {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/all`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -60,7 +61,7 @@ const GestionUsuarios = () => {
     if (!selectedUser || !newRole) return;
 
     try {
-      const response = await fetch('http://localhost:8080/api/users/role', {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/role`, {
         method: 'PUT',
         credentials: 'include',
         headers: {

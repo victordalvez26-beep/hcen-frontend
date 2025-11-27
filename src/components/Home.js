@@ -71,7 +71,7 @@ const Home = () => {
     try {
       console.log('🔄 Intercambiando token temporal:', tempToken.substring(0, 10) + '...');
       // Intercambiar token temporal por JWT real
-      const response = await fetch(`${config.BACKEND_URL || 'http://localhost:8080'}/api/auth/exchange-token`, {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/exchange-token`, {
         method: 'POST',
         credentials: 'include',
         headers: {
