@@ -133,7 +133,7 @@ const Header = ({ user, activePage = '' }) => {
                 )}
               </a>
               
-              <a 
+              {user && <a 
                 href="/historia-clinica" 
                 onClick={() => isMobile && setIsMobileMenuOpen(false)}
                 style={{
@@ -161,7 +161,7 @@ const Header = ({ user, activePage = '' }) => {
                     borderRadius: '1px'
                   }} />
                 )}
-              </a>
+              </a>}
 
               {user && user.rol !== 'AD' && (
                 <a 
