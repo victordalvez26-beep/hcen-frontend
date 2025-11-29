@@ -631,7 +631,7 @@ const HistoriaClinica = () => {
                               {formatDate(documento.fecha)}
                             </div>
                             <div style={{display: 'flex', gap: '10px'}}>
-                              {documento.id && documento.uriDocumento && documento.uriDocumento.includes('localhost:8081') ? (
+                              {documento.id && documento.uriDocumento ? (
                                 <a
                                   href={`${config.BACKEND_URL}/api/metadatos-documento/${documento.id}/descargar`}
                                   download={`${documento.categoria || 'documento'}-${documento.id}.pdf`}
