@@ -4,6 +4,7 @@ import config from '../config';
 const Home = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isMinor, setIsMinor] = useState(false);
 
   const checkSession = useCallback(async () => {
     try {
@@ -35,6 +36,7 @@ const Home = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
     const tempToken = urlParams.get('token');
+    const error = urlParams.get('error');
     
     console.log('🔍 [DEBUG] Home.js useEffect ejecutado');
     console.log('🔍 [DEBUG] URL completa:', window.location.href);
@@ -45,6 +47,14 @@ const Home = () => {
     // Verificar si ya se procesó el token (evitar llamadas duplicadas)
     const tokenProcessed = sessionStorage.getItem('token_exchange_processed');
     
+    if (error === 'menor_de_edad') {
+      console.warn('⛔ Usuario identificado como menor de edad');
+      setIsMinor(true);
+      setLoading(false);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
     if (loginStatus === 'success' && tempToken && !tokenProcessed) {
       console.log('✅ Login exitoso! Intercambiando token temporal...');
       sessionStorage.setItem('token_exchange_processed', 'true');
@@ -131,6 +141,35 @@ const Home = () => {
     
     window.location.href = authUrl.toString();
   };
+
+  if (isMinor) {
+    return (
+      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center', backgroundColor: '#f2f3f7'}}>
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-xl-8 col-lg-8">
+              <div className="welcome_hcen_info text-center" style={{backgroundColor: 'white', padding: '50px', borderRadius: '10px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)'}}>
+                <div style={{marginBottom: '30px'}}>
+                  <i className="flaticon-warning" style={{fontSize: '60px', color: '#ff4b4b'}}></i>
+                </div>
+                <h3 style={{color: '#1f2b7b', marginBottom: '20px'}}>Acceso Restringido</h3>
+                <p style={{fontSize: '18px', color: '#666', marginBottom: '30px'}}>
+                  Lo sentimos, el acceso a la Historia Clínica Electrónica Nacional no está permitido para menores de 18 años.
+                </p>
+                <div className="alert alert-info" role="alert" style={{textAlign: 'left', marginBottom: '30px'}}>
+                  <h5 className="alert-heading"><i className="fa fa-info-circle"></i> Información Importante</h5>
+                  <p className="mb-0">
+                    Si usted considera que esto es un error, por favor verifique sus datos en la Dirección Nacional de Identificación Civil (DNIC).
+                  </p>
+                </div>
+                <a href="/" className="boxed-btn5" onClick={(e) => { e.preventDefault(); setIsMinor(false); }}>Volver al Inicio</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
