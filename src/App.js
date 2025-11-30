@@ -9,6 +9,7 @@ import GestionUsuarios from './components/GestionUsuarios';
 import GestionPrestadores from './components/GestionPrestadores';
 import GestionPoliticas from './components/GestionPoliticas';
 import MiPerfil from './components/MiPerfil';
+import MisClinicas from './components/MisClinicas';
 import ReportesAdmin from './components/ReportesAdmin';
 import RegistroPrestador from './components/RegistroPrestador';
 import Contacto from './components/Contacto';
@@ -165,6 +166,7 @@ function AppContent() {
     if (location.pathname === '/gestion-prestadores') return 'gestion-prestadores';
     if (location.pathname === '/gestion-politicas') return 'gestion-politicas';
     if (location.pathname === '/reportes') return 'reportes';
+    if (location.pathname === '/mis-clinicas') return 'mis-clinicas';
     if (location.pathname === '/mi-perfil') return 'mi-perfil';
     if (location.pathname === '/contact') return 'contact';
     return '';
@@ -267,11 +269,16 @@ function AppContent() {
             <GestionPoliticas />
           </AdminRoute>
         } />
-        <Route path="/reportes" element={
+          <Route path="/reportes" element={
           <AdminRoute>
             <ReportesAdmin />
           </AdminRoute>
         } />
+          <Route path="/mis-clinicas" element={
+            <ProtectedRoute>
+              <MisClinicas />
+            </ProtectedRoute>
+          } />
           <Route path="/mi-perfil" element={
             <ProtectedRoute>
               <MiPerfil />
