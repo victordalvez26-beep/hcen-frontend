@@ -1,5 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import config from '../config';
+import GenericPopup from './GenericPopup';
+
+// Función auxiliar para parsear fechas que pueden venir con formato [UTC] al final
+const parseFecha = (fechaString) => {
+  if (!fechaString) return null;
+  
+  // Remover [UTC] del final si existe
+  const fechaLimpia = fechaString.toString().replace(/\[UTC\]$/, '').trim();
+  
+  try {
+    const fecha = new Date(fechaLimpia);
+    // Verificar que la fecha sea válida
+    if (Number.isNaN(fecha.getTime())) {
+      console.warn('Fecha inválida:', fechaString);
+      return null;
+    }
+    return fecha;
+  } catch (error) {
+    console.warn('Error al parsear fecha:', fechaString, error);
+    return null;
+  }
+};
 
 const MiPerfil = () => {
   const [user, setUser] = useState(null);
@@ -19,6 +41,7 @@ const MiPerfil = () => {
   const [todosLosProfesionales, setTodosLosProfesionales] = useState(true); // Si true, todos los profesionales de la clínica
   const [especialidadesSeleccionadas, setEspecialidadesSeleccionadas] = useState([]); // Lista de especialidades seleccionadas
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [confirmPopup, setConfirmPopup] = useState({ show: false, message: '', onConfirm: null, title: '' });
   
   // Lista de especialidades disponibles (mismas para todas las clínicas)
   const especialidadesDisponibles = [
@@ -219,8 +242,8 @@ const MiPerfil = () => {
         console.log(`✅ Accesos recibidos:`, data);
         // Ordenar por fecha descendente (más recientes primero)
         const accesosOrdenados = Array.isArray(data) ? data.sort((a, b) => {
-          const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
-          const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
+          const fechaA = parseFecha(a.fecha) || new Date(0);
+          const fechaB = parseFecha(b.fecha) || new Date(0);
           return fechaB - fechaA;
         }) : [];
         console.log(`📊 Total de accesos ordenados: ${accesosOrdenados.length}`);
@@ -432,15 +455,6 @@ const MiPerfil = () => {
     }
   };
 
-  const filteredPoliticas = politicas.filter(politica => {
-    if (!searchTerm) return true;
-    
-    // Buscar por clínica
-    const clinicaStr = politica.clinicaAutorizada?.toLowerCase() || '';
-    const especialidadesStr = parseEspecialidadesParaMostrar(politica.especialidadesAutorizadas)?.toLowerCase() || '';
-    return clinicaStr.includes(searchTerm.toLowerCase()) || especialidadesStr.includes(searchTerm.toLowerCase());
-  });
-  
   // Helper para parsear especialidades y mostrarlas
   const parseEspecialidadesParaMostrar = (especialidadesStr) => {
     if (!especialidadesStr || especialidadesStr.trim() === '') {
@@ -468,6 +482,20 @@ const MiPerfil = () => {
       return especialidadesStr;
     }
   };
+
+  const filteredPoliticas = politicas.filter(politica => {
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Buscar por clínica
+    const clinicaStr = politica.clinicaAutorizada?.toLowerCase() || '';
+    
+    // Buscar por profesional autorizado
+    const profesionalStr = politica.profesionalAutorizado?.toLowerCase() || '';
+    
+    return clinicaStr.includes(searchLower) || profesionalStr.includes(searchLower);
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -514,12 +542,23 @@ const MiPerfil = () => {
       politicaData.especialidadesAutorizadas = especialidadesSeleccionadas;
     }
     
+    // Validar fecha de vencimiento si la duración es temporal
+    if (formData.duracion === 'TEMPORAL') {
+      if (!formData.fechaVencimiento || formData.fechaVencimiento.trim() === '') {
+        setMessage('La fecha de vencimiento es obligatoria cuando la duración es temporal.');
+        return;
+      }
+      politicaData.fechaVencimiento = formData.fechaVencimiento;
+    } else {
+      // Si la duración no es temporal, eliminar el campo fechaVencimiento si está vacío
+      if (!politicaData.fechaVencimiento || politicaData.fechaVencimiento.trim() === '') {
+        delete politicaData.fechaVencimiento;
+      }
+    }
+    
     // Limpiar campos vacíos que pueden causar problemas de deserialización
     if (!politicaData.tipoDocumento || politicaData.tipoDocumento.trim() === '') {
       delete politicaData.tipoDocumento;
-    }
-    if (!politicaData.fechaVencimiento || politicaData.fechaVencimiento.trim() === '') {
-      delete politicaData.fechaVencimiento;
     }
     if (!politicaData.referencia || politicaData.referencia.trim() === '') {
       delete politicaData.referencia;
@@ -568,33 +607,38 @@ const MiPerfil = () => {
     setTimeout(() => setMessage(''), 5000);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('¿Está seguro de que desea eliminar esta política?')) {
-      return;
-    }
+  const handleDelete = (id) => {
+    setConfirmPopup({
+      show: true,
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar esta política?',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/${id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
 
-    try {
-      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
+          if (response.ok) {
+            setMessage('Política eliminada exitosamente');
+            loadPoliticas();
+          } else {
+            const errorData = await response.json();
+            setMessage('Error eliminando política: ' + (errorData.error || 'Error desconocido'));
+          }
+        } catch (error) {
+          console.error('Error eliminando política:', error);
+          setMessage('Error de conexión al eliminar política');
+        } finally {
+          setConfirmPopup({ show: false, message: '', onConfirm: null, title: '' });
         }
-      });
 
-      if (response.ok) {
-        setMessage('Política eliminada exitosamente');
-        loadPoliticas();
-      } else {
-        const errorData = await response.json();
-        setMessage('Error eliminando política: ' + (errorData.error || 'Error desconocido'));
+        setTimeout(() => setMessage(''), 5000);
       }
-    } catch (error) {
-      console.error('Error eliminando política:', error);
-      setMessage('Error de conexión al eliminar política');
-    }
-
-    setTimeout(() => setMessage(''), 5000);
+    });
   };
 
   const resetForm = () => {
@@ -644,6 +688,26 @@ const MiPerfil = () => {
     };
     return labels[gestion] || gestion;
   };
+
+  const formatTipoDocumento = (tipo) => {
+    if (!tipo) return '';
+    return tipo.replaceAll('_', ' ');
+  };
+
+  const tiposDocumento = [
+    { value: '', label: 'Seleccione un tipo de documento' },
+    { value: 'RESUMEN_ALTA', label: 'Resumen de Alta' },
+    { value: 'INFORME_LABORATORIO', label: 'Informe de Laboratorio' },
+    { value: 'RADIOGRAFIA', label: 'Radiografía' },
+    { value: 'RECETA_MEDICA', label: 'Receta Médica' },
+    { value: 'CONSULTA_MEDICA', label: 'Consulta Médica' },
+    { value: 'CIRUGIA', label: 'Cirugía' },
+    { value: 'ESTUDIO_IMAGENOLOGIA', label: 'Estudio de Imagenología' },
+    { value: 'ELECTROCARDIOGRAMA', label: 'Electrocardiograma' },
+    { value: 'INFORME_PATOLOGIA', label: 'Informe de Patología' },
+    { value: 'VACUNACION', label: 'Vacunación' },
+    { value: 'OTROS', label: 'Otros' }
+  ];
 
   const getAlcanceBadgeColor = (alcance) => {
     const colors = {
@@ -780,7 +844,9 @@ const MiPerfil = () => {
           }}>
             <i className={`fa ${message.includes('Error') ? 'fa-exclamation-circle' : 'fa-check-circle'}`} style={{marginRight: '8px'}}></i>
             {message}
-            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
+            <button type="button" className="btn-close" onClick={() => setMessage('')}>
+              <i className="fa fa-times"></i>
+            </button>
           </div>
         )}
 
@@ -1144,7 +1210,7 @@ const MiPerfil = () => {
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="Ingrese el ID del profesional o nombre de clínica..."
+                          placeholder="Ingrese el nombre del profesional o número de clínica..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           style={{
@@ -1193,9 +1259,11 @@ const MiPerfil = () => {
                             <tr style={{backgroundColor: '#f8fafc'}}>
                               <th style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#374151', fontWeight: '600'}}>ID</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Autorizado</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Profesional Autorizado</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Alcance</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Duración</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Gestión</th>
+                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Fecha de Creación</th>
                               <th style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', color: '#374151', fontWeight: '600'}}>Acciones</th>
                             </tr>
                           </thead>
@@ -1233,23 +1301,81 @@ const MiPerfil = () => {
                                     </div>
                                   </div>
                                 </td>
+                                <td style={{padding: '15px 20px', color: '#374151'}}>
+                                  {politica.profesionalAutorizado && politica.profesionalAutorizado !== '*' ? (
+                                    <span className="badge" style={{
+                                      backgroundColor: '#10b981',
+                                      color: '#ffffff',
+                                      padding: '8px 12px',
+                                      borderRadius: '6px',
+                                      fontWeight: '600',
+                                      fontSize: '13px',
+                                      display: 'inline-block'
+                                    }}>
+                                      <i className="fa fa-user-md" style={{marginRight: '5px'}}></i>
+                                      {politica.profesionalAutorizado}
+                                    </span>
+                                  ) : (
+                                    <span className="badge" style={{
+                                      backgroundColor: '#6b7280',
+                                      color: '#ffffff',
+                                      padding: '8px 12px',
+                                      borderRadius: '6px',
+                                      fontWeight: '600',
+                                      fontSize: '13px',
+                                      display: 'inline-block'
+                                    }}>
+                                      <i className="fa fa-users" style={{marginRight: '5px'}}></i>
+                                      Todos
+                                    </span>
+                                  )}
+                                </td>
                                 <td style={{padding: '15px 20px'}}>
-                                  <span className="badge" style={{
-                                    padding: '8px 12px',
-                                    borderRadius: '5px',
-                                    fontWeight: '600',
-                                    fontSize: '12px',
-                                    backgroundColor: getAlcanceBadgeColor(politica.alcance),
-                                    color: '#ffffff'
-                                  }}>
-                                    {getAlcanceLabel(politica.alcance)}
-                                  </span>
+                                  <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                                    <span className="badge" style={{
+                                      padding: '8px 12px',
+                                      borderRadius: '5px',
+                                      fontWeight: '600',
+                                      fontSize: '12px',
+                                      backgroundColor: getAlcanceBadgeColor(politica.alcance),
+                                      color: '#ffffff',
+                                      alignSelf: 'flex-start'
+                                    }}>
+                                      {getAlcanceLabel(politica.alcance)}
+                                    </span>
+                                    {politica.alcance !== 'TODOS_LOS_DOCUMENTOS' && politica.tipoDocumento && (
+                                      <span className="badge" style={{
+                                        backgroundColor: '#8b5cf6',
+                                        color: '#ffffff',
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        fontWeight: '500',
+                                        alignSelf: 'flex-start'
+                                      }}>
+                                        <i className="fa fa-file-alt" style={{marginRight: '5px'}}></i>
+                                        {formatTipoDocumento(politica.tipoDocumento)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td style={{padding: '15px 20px', color: '#374151'}}>
                                   {getDuracionLabel(politica.duracion)}
                                 </td>
                                 <td style={{padding: '15px 20px', color: '#374151'}}>
                                   {getGestionLabel(politica.gestion)}
+                                </td>
+                                <td style={{padding: '15px 20px', color: '#6b7280', fontSize: '13px'}}>
+                                  {(() => {
+                                    const fecha = parseFecha(politica.fechaCreacion);
+                                    return fecha ? fecha.toLocaleDateString('es-UY', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : (politica.fechaCreacion || 'N/A');
+                                  })()}
                                 </td>
                                 <td style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px'}}>
                                   <button
@@ -1282,7 +1408,7 @@ const MiPerfil = () => {
                             ))}
                             {filteredPoliticas.length === 0 && (
                               <tr>
-                                <td colSpan="6" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
+                                <td colSpan="8" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
                                   <i className="fa fa-shield-alt" style={{fontSize: '48px', marginBottom: '15px', opacity: '0.3'}}></i>
                                   <div style={{fontSize: '18px', fontWeight: '500'}}>No se encontraron políticas</div>
                                   <div style={{fontSize: '14px', marginTop: '5px'}}>
@@ -1355,7 +1481,7 @@ const MiPerfil = () => {
                           </thead>
                           <tbody>
                             {accesosHistoria.map(acceso => {
-                              const fecha = acceso.fecha ? new Date(acceso.fecha) : null;
+                              const fecha = parseFecha(acceso.fecha);
                               const fechaFormateada = fecha ? fecha.toLocaleString('es-UY', {
                                 year: 'numeric',
                                 month: '2-digit',
@@ -1591,13 +1717,16 @@ const MiPerfil = () => {
                                     </div>
                                   </td>
                                   <td style={{padding: '15px 20px', color: '#6b7280', fontSize: '13px'}}>
-                                    {solicitud.fechaSolicitud ? new Date(solicitud.fechaSolicitud).toLocaleDateString('es-UY', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    }) : '-'}
+                                    {(() => {
+                                      const fecha = parseFecha(solicitud.fechaSolicitud);
+                                      return fecha ? fecha.toLocaleDateString('es-UY', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      }) : '-';
+                                    })()}
                                   </td>
                                   <td style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px'}}>
                                     <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
@@ -1710,7 +1839,9 @@ const MiPerfil = () => {
                     resetForm();
                   }}
                   style={{fontSize: '20px'}}
-                ></button>
+                >
+                  <i className="fa fa-times"></i>
+                </button>
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="modal-body" style={{padding: '30px', maxHeight: '70vh', overflowY: 'auto'}}>
@@ -1967,7 +2098,7 @@ const MiPerfil = () => {
                           fontWeight: '600',
                           marginBottom: '10px'
                         }}>
-                          Fecha de Vencimiento
+                          Fecha de Vencimiento <span style={{color: '#dc2626'}}>*</span>
                         </label>
                         <input
                           type="date"
@@ -1975,6 +2106,7 @@ const MiPerfil = () => {
                           className="form-control"
                           value={formData.fechaVencimiento}
                           onChange={(e) => setFormData({...formData, fechaVencimiento: e.target.value})}
+                          required
                           style={{
                             borderRadius: '8px',
                             border: '2px solid #e5e7eb',
@@ -1995,25 +2127,30 @@ const MiPerfil = () => {
                           fontWeight: '600',
                           marginBottom: '10px'
                         }}>
-                          Tipo de Documento
+                          Tipo de Documento <span style={{color: '#dc2626'}}>*</span>
                         </label>
-                        <input
-                          type="text"
+                        <select
                           id="tipoDocumento"
                           className="form-control"
                           value={formData.tipoDocumento}
                           onChange={(e) => setFormData({...formData, tipoDocumento: e.target.value})}
-                        style={{
-                          borderRadius: '8px',
-                          border: '2px solid #e5e7eb',
-                          padding: '12px 15px',
-                          fontSize: '16px',
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          minHeight: '48px'
-                        }}
-                        placeholder="Ej: INFORME_MEDICO"
-                        />
+                          required
+                          style={{
+                            borderRadius: '8px',
+                            border: '2px solid #e5e7eb',
+                            padding: '12px 15px',
+                            fontSize: '16px',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            minHeight: '48px'
+                          }}
+                        >
+                          {tiposDocumento.map(tipo => (
+                            <option key={tipo.value} value={tipo.value}>
+                              {tipo.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
 
@@ -2096,6 +2233,19 @@ const MiPerfil = () => {
           </div>
         </div>
       )}
+
+      <GenericPopup
+        show={confirmPopup.show}
+        onClose={() => setConfirmPopup({ show: false, message: '', onConfirm: null, title: '' })}
+        message={confirmPopup.message}
+        type="warning"
+        title={confirmPopup.title}
+        showConfirm={true}
+        onConfirm={confirmPopup.onConfirm}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        confirmColor="#dc2626"
+      />
     </>
   );
 };

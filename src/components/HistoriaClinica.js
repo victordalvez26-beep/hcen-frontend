@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
+import GenericPopup from './GenericPopup';
 
 const HistoriaClinica = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ const HistoriaClinica = () => {
   const [loadingDocumentos, setLoadingDocumentos] = useState(false);
   const [error, setError] = useState(null);
   const [descargandoHistoria, setDescargandoHistoria] = useState(false);
+  const [popup, setPopup] = useState({ show: false, message: '', type: 'error' });
   const [filtros, setFiltros] = useState({
     categoria: 'todos',
     institucion: 'todos',
@@ -162,7 +164,7 @@ const HistoriaClinica = () => {
       console.log('✅ Historia clínica descargada exitosamente');
     } catch (error) {
       console.error('❌ Error descargando historia clínica:', error);
-      alert('No se pudo descargar la historia clínica completa. Por favor, intente más tarde.');
+      setPopup({ show: true, message: 'No se pudo descargar la historia clínica completa. Por favor, intente más tarde.', type: 'error' });
     } finally {
       setDescargandoHistoria(false);
     }
@@ -849,6 +851,13 @@ const HistoriaClinica = () => {
           </div>
         </div>
       </div>
+
+      <GenericPopup
+        show={popup.show}
+        onClose={() => setPopup({ ...popup, show: false })}
+        message={popup.message}
+        type={popup.type}
+      />
     </>
   );
 };

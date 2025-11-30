@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import config from '../config';
+import GenericPopup from './GenericPopup';
 
 const DetalleDocumento = () => {
   const { id } = useParams();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [documento, setDocumento] = useState(null);
+  const [popup, setPopup] = useState({ show: false, message: '', type: 'info', title: '' });
 
   // Datos de respaldo para demo (se eliminará cuando haya datos reales)
   const documentosClinicos = useMemo(() => [
@@ -243,7 +245,7 @@ const DetalleDocumento = () => {
       if (doc) {
         setDocumento(doc);
       } else {
-        alert('No se pudo cargar el documento. Por favor, intente más tarde.');
+        setPopup({ show: true, message: 'No se pudo cargar el documento. Por favor, intente más tarde.', type: 'error' });
       }
     }
   }, [documentosClinicos, user?.uid]);
@@ -261,7 +263,12 @@ const DetalleDocumento = () => {
   const handleDownload = (archivo) => {
     // Verificar si es una URL de ejemplo
     if (archivo.url && archivo.url.includes('ejemplo.com')) {
-      alert(`📄 Documento: ${archivo.nombre}\n\n⚠️ Este es un documento de demostración.\nEn una implementación real, el archivo se descargaría desde el servidor del hospital.`);
+      setPopup({ 
+        show: true, 
+        message: `📄 Documento: ${archivo.nombre}\n\n⚠️ Este es un documento de demostración.\nEn una implementación real, el archivo se descargaría desde el servidor del hospital.`, 
+        type: 'warning',
+        title: 'Documento de Demostración'
+      });
       return;
     }
     
@@ -279,7 +286,12 @@ const DetalleDocumento = () => {
       link.download = archivo.nombre;
       link.click();
       
-      alert(`📄 Descargando: ${archivo.nombre}\n\n⚠️ En una implementación real, este archivo se descargaría desde el servidor.`);
+      setPopup({ 
+        show: true, 
+        message: `📄 Descargando: ${archivo.nombre}\n\n⚠️ En una implementación real, este archivo se descargaría desde el servidor.`, 
+        type: 'info',
+        title: 'Descarga'
+      });
     }
   };
 
@@ -697,6 +709,14 @@ const DetalleDocumento = () => {
           </div>
         </div>
       </div>
+
+      <GenericPopup
+        show={popup.show}
+        onClose={() => setPopup({ ...popup, show: false })}
+        message={popup.message}
+        type={popup.type}
+        title={popup.title}
+      />
     </>
   );
 };

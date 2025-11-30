@@ -408,7 +408,9 @@ const GestionClinicas = () => {
             marginBottom: '20px'
           }}>
             {message}
-            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
+            <button type="button" className="btn-close" onClick={() => setMessage('')}>
+              <i className="fa fa-times"></i>
+            </button>
           </div>
         )}
 
@@ -698,7 +700,7 @@ const GestionClinicas = () => {
                   style={{
                     backgroundColor: 'transparent',
                     border: 'none',
-                    fontSize: '24px',
+                    fontSize: '20px',
                     color: '#6b7280',
                     cursor: 'pointer',
                     padding: '0',
