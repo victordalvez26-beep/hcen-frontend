@@ -101,13 +101,57 @@
   padding: 0.5rem 1rem;
 }
 
-/* Select personalizado */
-.form-select {
+/* Select personalizado - Corregir texto cortado verticalmente */
+.form-select,
+select {
   border: 2px solid var(--moonstone);
   border-radius: 6px;
+  padding: 10px 12px !important;
+  line-height: 1.5 !important;
+  height: auto !important;
+  min-height: 42px;
+  display: block;
+  overflow: visible !important;
 }
 
-.form-select:focus {
+.form-select:focus,
+select:focus {
+  border-color: var(--picton-blue);
+  box-shadow: 0 0 0 0.2rem rgba(95, 168, 211, 0.25);
+}
+
+/* Corregir nice-select para que muestre el texto completo */
+.nice-select {
+  border: 2px solid var(--moonstone);
+  border-radius: 6px;
+  line-height: 1.5 !important;
+  height: auto !important;
+  min-height: 42px;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  overflow: visible !important;
+}
+
+.nice-select .current {
+  line-height: 1.5 !important;
+  display: flex !important;
+  align-items: center !important;
+  min-height: 22px;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+.nice-select span {
+  line-height: 1.5 !important;
+  display: block;
+  overflow: visible !important;
+  padding: 0;
+}
+
+.nice-select:focus {
   border-color: var(--picton-blue);
   box-shadow: 0 0 0 0.2rem rgba(95, 168, 211, 0.25);
 }
