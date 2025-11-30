@@ -100,6 +100,7 @@ const Header = ({ user, activePage = '', viewRole = null, setViewRole = null }) 
 
               {/* Opciones para Usuario de Salud (cuando viewRole es US o el usuario real es US) */}
               {user && displayRole !== 'AD' && (
+                <>
                 <a 
                   href="/mi-perfil" 
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
@@ -112,6 +113,20 @@ const Header = ({ user, activePage = '', viewRole = null, setViewRole = null }) 
                     <div className="header-nav-link-indicator" />
                   )}
                 </a>
+
+                <a 
+                  href="/mis-clinicas" 
+                  onClick={() => isMobile && setIsMobileMenuOpen(false)}
+                  className={`header-nav-link ${activePage === 'mis-clinicas' ? 'active' : ''}`}
+                  onMouseEnter={(e) => e.target.style.color = '#ffffff'}
+                  onMouseLeave={(e) => e.target.style.color = activePage === 'mis-clinicas' ? '#ffffff' : '#e5e7eb'}
+                >
+                  Mis Clínicas
+                  {activePage === 'mis-clinicas' && !isMobile && (
+                    <div className="header-nav-link-indicator" />
+                  )}
+                </a>
+                </>
               )}
 
               {/* Opciones para Administrador (cuando viewRole es AD) */}
