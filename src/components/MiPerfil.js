@@ -35,6 +35,18 @@ const MiPerfil = () => {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    email: '',
+    telefono: '',
+    direccion: '',
+    departamento: '',
+    localidad: '',
+    primerNombre: '',
+    segundoNombre: '',
+    primerApellido: '',
+    segundoApellido: ''
+  });
   const [message, setMessage] = useState('');
   const [clinicas, setClinicas] = useState([]);
   const [loadingClinicas, setLoadingClinicas] = useState(false);
@@ -414,10 +426,46 @@ const MiPerfil = () => {
         }
       });
       
-      const data = await response.json();
+      const sessionData = await response.json();
       
-      if (data.authenticated) {
-        setUser(data);
+      if (sessionData.authenticated) {
+        // Obtener perfil completo (que lee de INUS)
+        try {
+            const profileResponse = await fetch(`${config.BACKEND_URL}/api/users/profile`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                
+                // Construir nombre completo si no viene
+                if (!profileData.nombre) {
+                    profileData.nombre = [
+                        profileData.primerNombre, 
+                        profileData.segundoNombre, 
+                        profileData.primerApellido, 
+                        profileData.segundoApellido
+                    ].filter(Boolean).join(' ');
+                }
+                
+                // Mapear campos para compatibilidad si es necesario
+                if (!profileData.documento && profileData.codDocum) {
+                    profileData.documento = profileData.codDocum;
+                }
+
+                setUser({ ...sessionData, ...profileData });
+            } else {
+                console.error('Error cargando perfil:', profileResponse.status);
+                setUser(sessionData);
+            }
+        } catch (error) {
+            console.error('Error de red al cargar perfil:', error);
+            setUser(sessionData);
+        }
       } else {
         setUser(null);
       }
@@ -426,6 +474,46 @@ const MiPerfil = () => {
       setUser(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditClick = () => {
+    setEditFormData({
+      email: user.email || '',
+      telefono: user.telefono || '',
+      direccion: user.direccion || '',
+      departamento: user.departamento || '',
+      localidad: user.localidad || '',
+      primerNombre: user.primerNombre || '',
+      segundoNombre: user.segundoNombre || '',
+      primerApellido: user.primerApellido || '',
+      segundoApellido: user.segundoApellido || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/update`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editFormData)
+      });
+
+      if (response.ok) {
+        setMessage('Perfil actualizado exitosamente');
+        setShowEditModal(false);
+        checkSession(); // Reload user data
+        setTimeout(() => setMessage(''), 5000);
+      } else {
+        const errorData = await response.json();
+        setMessage('Error actualizando perfil: ' + (errorData.error || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setMessage('Error de conexión al actualizar perfil');
     }
   };
 
@@ -1013,17 +1101,34 @@ const MiPerfil = () => {
             border: '1px solid var(--border-color)'
           }}>
             <div className="card-body" style={{padding: '40px'}}>
-              <h4 style={{
-                color: '#1f2937',
-                fontSize: '24px',
-                fontWeight: '600',
-                marginBottom: '30px',
-                borderBottom: '2px solid #e5e7eb',
-                paddingBottom: '15px'
-              }}>
-                <i className="fa fa-user-circle" style={{marginRight: '10px', color: '#3b82f6'}}></i>
-                Información del Usuario
-              </h4>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #e5e7eb', paddingBottom: '15px'}}>
+                <h4 style={{
+                  color: '#1f2937',
+                  fontSize: '24px',
+                  fontWeight: '600',
+                  margin: 0
+                }}>
+                  <i className="fa fa-user-circle" style={{marginRight: '10px', color: '#3b82f6'}}></i>
+                  Información del Usuario
+                </h4>
+                <button
+                  onClick={handleEditClick}
+                  className="btn btn-primary"
+                  style={{
+                    backgroundColor: '#3b82f6',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <i className="fa fa-edit"></i>
+                  Editar Perfil
+                </button>
+              </div>
               
               <div className="row">
                 <div className="col-md-6 mb-4">
@@ -1084,7 +1189,7 @@ const MiPerfil = () => {
                     marginBottom: '8px',
                     display: 'block'
                   }}>
-                    UID
+                    Documento
                   </label>
                   <div style={{
                     padding: '12px 16px',
@@ -1092,10 +1197,33 @@ const MiPerfil = () => {
                     borderRadius: '8px',
                     color: '#1f2937',
                     fontSize: '16px',
-                    fontFamily: 'monospace',
                     border: '1px solid #e5e7eb'
                   }}>
-                    {user.uid}
+                    {user.documento || user.codDocum || 'No disponible'}
+                  </div>
+                </div>
+
+                <div className="col-md-6 mb-4">
+                  <label style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '8px',
+                    display: 'block'
+                  }}>
+                    Teléfono
+                  </label>
+                  <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '8px',
+                    color: '#1f2937',
+                    fontSize: '16px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    {user.telefono || 'No disponible'}
                   </div>
                 </div>
 
@@ -1124,6 +1252,30 @@ const MiPerfil = () => {
                     </div>
                   </div>
                 )}
+
+                <div className="col-md-12 mb-4">
+                  <label style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '8px',
+                    display: 'block'
+                  }}>
+                    Dirección
+                  </label>
+                  <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '8px',
+                    color: '#1f2937',
+                    fontSize: '16px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    {user.direccion ? `${user.direccion}${user.localidad ? `, ${user.localidad}` : ''}${user.departamento ? `, ${user.departamento}` : ''}` : 'No disponible'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2246,9 +2398,197 @@ const MiPerfil = () => {
         cancelText="Cancelar"
         confirmColor="#dc2626"
       />
+      {/* Modal para Editar Perfil */}
+      {showEditModal && (
+        <div className="modal fade show" style={{
+          display: 'block',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 1050
+        }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content" style={{
+              borderRadius: '15px',
+              border: 'none',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+            }}>
+              <div className="modal-header" style={{
+                borderBottom: '1px solid #e5e7eb',
+                padding: '20px 30px',
+                backgroundColor: 'var(--background-color)',
+                borderTopLeftRadius: '15px',
+                borderTopRightRadius: '15px'
+              }}>
+                <h5 className="modal-title" style={{
+                  color: 'var(--heading-color)',
+                  fontWeight: '600',
+                  fontSize: '20px'
+                }}>
+                  <i className="fa fa-user-edit" style={{marginRight: '10px', color: 'var(--primary-color)'}}></i>
+                  Editar Perfil
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowEditModal(false)}
+                  style={{fontSize: '20px'}}
+                ></button>
+              </div>
+              <form onSubmit={handleEditSubmit}>
+                <div className="modal-body" style={{padding: '30px', maxHeight: '70vh', overflowY: 'auto'}}>
+                  <div className="row">
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Primer Nombre</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editFormData.primerNombre}
+                        onChange={(e) => setEditFormData({...editFormData, primerNombre: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Segundo Nombre</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editFormData.segundoNombre}
+                        onChange={(e) => setEditFormData({...editFormData, segundoNombre: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Primer Apellido</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editFormData.primerApellido}
+                        onChange={(e) => setEditFormData({...editFormData, primerApellido: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Segundo Apellido</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editFormData.segundoApellido}
+                        onChange={(e) => setEditFormData({...editFormData, segundoApellido: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Email</label>
+                      <input
+                        type="email"
+                        className="form-control"
+                        value={editFormData.email}
+                        onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Teléfono</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editFormData.telefono}
+                        onChange={(e) => setEditFormData({...editFormData, telefono: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-12 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Dirección</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editFormData.direccion}
+                        onChange={(e) => setEditFormData({...editFormData, direccion: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Localidad</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editFormData.localidad}
+                        onChange={(e) => setEditFormData({...editFormData, localidad: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Departamento</label>
+                      <select
+                        className="form-control"
+                        value={editFormData.departamento}
+                        onChange={(e) => setEditFormData({...editFormData, departamento: e.target.value})}
+                        style={{borderRadius: '8px', padding: '12px'}}
+                      >
+                        <option value="">Seleccione...</option>
+                        <option value="MONTEVIDEO">Montevideo</option>
+                        <option value="CANELONES">Canelones</option>
+                        <option value="MALDONADO">Maldonado</option>
+                        <option value="ROCHA">Rocha</option>
+                        <option value="TREINTA_Y_TRES">Treinta y Tres</option>
+                        <option value="CERRO_LARGO">Cerro Largo</option>
+                        <option value="RIVERA">Rivera</option>
+                        <option value="ARTIGAS">Artigas</option>
+                        <option value="SALTO">Salto</option>
+                        <option value="PAYSANDU">Paysandú</option>
+                        <option value="RIO_NEGRO">Río Negro</option>
+                        <option value="SORIANO">Soriano</option>
+                        <option value="COLONIA">Colonia</option>
+                        <option value="SAN_JOSE">San José</option>
+                        <option value="FLORES">Flores</option>
+                        <option value="FLORIDA">Florida</option>
+                        <option value="LAVALLEJA">Lavalleja</option>
+                        <option value="DURAZNO">Durazno</option>
+                        <option value="TACUAREMBO">Tacuarembó</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer" style={{
+                  borderTop: '1px solid #e5e7eb',
+                  padding: '20px 30px',
+                  backgroundColor: 'var(--background-color)',
+                  borderBottomLeftRadius: '15px',
+                  borderBottomRightRadius: '15px'
+                }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowEditModal(false)}
+                    style={{padding: '10px 20px', borderRadius: '8px', fontWeight: '500'}}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      backgroundColor: '#3b82f6',
+                      border: 'none',
+                      color: '#ffffff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <i className="fa fa-save"></i>
+                    Guardar Cambios
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
 
 export default MiPerfil;
-
