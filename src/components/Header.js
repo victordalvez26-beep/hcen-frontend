@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import config from '../config';
+import '../styles/header.css';
 
-const Header = ({ user, activePage = '' }) => {
+const Header = ({ user, activePage = '', viewRole = null, setViewRole = null }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
@@ -17,47 +18,43 @@ const Header = ({ user, activePage = '' }) => {
   }, [windowWidth]);
 
   const isMobile = windowWidth < 768;
+  
+  // Determinar el rol a usar para mostrar opciones (viewRole si está disponible, sino user.rol)
+  const displayRole = viewRole || (user ? user.rol : null);
+  
+  // Función para cambiar el rol de vista (solo para admin)
+  const toggleViewRole = () => {
+    if (setViewRole && user && user.rol === 'AD') {
+      const newRole = viewRole === 'US' ? 'AD' : 'US';
+      setViewRole(newRole);
+      // Redirigir a home cuando cambia la vista y está en página de admin
+      if (newRole === 'US' && (window.location.pathname.startsWith('/gestion-') || window.location.pathname === '/reportes')) {
+        window.location.href = '/';
+      }
+    }
+  };
 
   return (
-    <header style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 1000,
-      background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
-      boxShadow: '0 2px 20px rgba(0,0,0,0.15)'
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '0 20px'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: '70px'
-        }}>
+    <header className="header">
+      <div className="header-container">
+        <div className="header-flex">
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}>
-            <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+          <div className="header-logo-container">
+            <a href="/" className="header-logo-link">
               <img 
                 src="/assets/img/logo.png" 
                 alt="HCEN" 
-                style={{ 
-                  height: isMobile ? '35px' : '45px', 
-                  marginRight: isMobile ? '8px' : '12px' 
-                }} 
+                className="header-logo-img"
               />
-              <span style={{
-                fontSize: isMobile ? '18px' : '24px',
-                fontWeight: '700',
-                color: '#ffffff',
-                letterSpacing: '-0.5px'
-              }}>
+              <span className="header-logo-text">
                 HCEN
               </span>
+              {/* Indicador de vista cuando admin está en modo usuario */}
+              {user && user.rol === 'AD' && viewRole === 'US' && (
+                <span className="header-vista-badge">
+                  Vista Usuario
+                </span>
+              )}
             </a>
           </div>
 
@@ -65,17 +62,7 @@ const Header = ({ user, activePage = '' }) => {
           {isMobile && (
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#ffffff',
-                fontSize: '24px',
-                cursor: 'pointer',
-                padding: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              className="header-mobile-menu-btn"
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? '✕' : '☰'}
@@ -83,237 +70,99 @@ const Header = ({ user, activePage = '' }) => {
           )}
 
           {/* Navigation */}
-          <nav style={{ 
-            display: isMobile ? (isMobileMenuOpen ? 'flex' : 'none') : 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            alignItems: isMobile ? 'flex-start' : 'center',
-            gap: isMobile ? '20px' : '40px',
-            position: isMobile ? 'absolute' : 'relative',
-            top: isMobile ? '70px' : 'auto',
-            left: isMobile ? '0' : 'auto',
-            right: isMobile ? '0' : 'auto',
-            background: isMobile ? 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)' : 'transparent',
-            padding: isMobile ? '20px' : '0',
-            boxShadow: isMobile ? '0 4px 6px rgba(0,0,0,0.1)' : 'none',
-            width: isMobile ? '100%' : 'auto'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: isMobile ? '20px' : '32px',
-              width: isMobile ? '100%' : 'auto'
-            }}>
+          <nav className={`header-nav ${isMobile && !isMobileMenuOpen ? 'hidden' : ''}`}>
+            <div className="header-nav-links">
               <a 
                 href="/" 
                 onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                style={{
-                  color: activePage === 'home' ? '#ffffff' : '#e5e7eb',
-                  textDecoration: 'none',
-                  fontWeight: activePage === 'home' ? '600' : '500',
-                  fontSize: isMobile ? '18px' : '16px',
-                  transition: 'color 0.2s ease',
-                  position: 'relative',
-                  padding: isMobile ? '8px 0' : '0',
-                  width: isMobile ? '100%' : 'auto'
-                }}
+                className={`header-nav-link ${activePage === 'home' ? 'active' : ''}`}
                 onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                 onMouseLeave={(e) => e.target.style.color = activePage === 'home' ? '#ffffff' : '#e5e7eb'}
               >
                 Inicio
                 {activePage === 'home' && !isMobile && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '-8px',
-                    left: '0',
-                    right: '0',
-                    height: '2px',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '1px'
-                  }} />
+                  <div className="header-nav-link-indicator" />
                 )}
               </a>
               
-              {user && <a 
+              {user && displayRole === 'US' && <a 
                 href="/historia-clinica" 
                 onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                style={{
-                  color: activePage === 'historia' ? '#ffffff' : '#e5e7eb',
-                  textDecoration: 'none',
-                  fontWeight: activePage === 'historia' ? '600' : '500',
-                  fontSize: isMobile ? '18px' : '16px',
-                  transition: 'color 0.2s ease',
-                  position: 'relative',
-                  padding: isMobile ? '8px 0' : '0',
-                  width: isMobile ? '100%' : 'auto'
-                }}
+                className={`header-nav-link ${activePage === 'historia' ? 'active' : ''}`}
                 onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                 onMouseLeave={(e) => e.target.style.color = activePage === 'historia' ? '#ffffff' : '#e5e7eb'}
               >
                 Historia Clínica
                 {activePage === 'historia' && !isMobile && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '-8px',
-                    left: '0',
-                    right: '0',
-                    height: '2px',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '1px'
-                  }} />
+                  <div className="header-nav-link-indicator" />
                 )}
               </a>}
 
-              {user && user.rol !== 'AD' && (
+              {/* Opciones para Usuario de Salud (cuando viewRole es US o el usuario real es US) */}
+              {user && displayRole !== 'AD' && (
                 <a 
                   href="/mi-perfil" 
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                  style={{
-                    color: activePage === 'mi-perfil' ? '#ffffff' : '#e5e7eb',
-                    textDecoration: 'none',
-                    fontWeight: activePage === 'mi-perfil' ? '600' : '500',
-                    fontSize: isMobile ? '18px' : '16px',
-                    transition: 'color 0.2s ease',
-                    position: 'relative',
-                    padding: isMobile ? '8px 0' : '0',
-                    width: isMobile ? '100%' : 'auto'
-                  }}
+                  className={`header-nav-link ${activePage === 'mi-perfil' ? 'active' : ''}`}
                   onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                   onMouseLeave={(e) => e.target.style.color = activePage === 'mi-perfil' ? '#ffffff' : '#e5e7eb'}
                 >
                   Mi Perfil
                   {activePage === 'mi-perfil' && !isMobile && (
-                    <div style={{
-                      position: 'absolute',
-                      bottom: '-8px',
-                      left: '0',
-                      right: '0',
-                      height: '2px',
-                      backgroundColor: '#ffffff',
-                      borderRadius: '1px'
-                    }} />
+                    <div className="header-nav-link-indicator" />
                   )}
                 </a>
               )}
 
-              {user && user.rol === 'AD' && (
+              {/* Opciones para Administrador (cuando viewRole es AD) */}
+              {user && displayRole === 'AD' && (
                 <>
                   <a 
                     href="/gestion-clinicas" 
                     onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                    style={{
-                      color: activePage === 'gestion-clinicas' ? '#ffffff' : '#e5e7eb',
-                      textDecoration: 'none',
-                      fontWeight: activePage === 'gestion-clinicas' ? '600' : '500',
-                      fontSize: isMobile ? '18px' : '16px',
-                      transition: 'color 0.2s ease',
-                      position: 'relative',
-                      padding: isMobile ? '8px 0' : '0',
-                      width: isMobile ? '100%' : 'auto',
-                      whiteSpace: isMobile ? 'nowrap' : 'normal'
-                    }}
+                    className={`header-nav-link ${activePage === 'gestion-clinicas' ? 'active' : ''}`}
                     onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                     onMouseLeave={(e) => e.target.style.color = activePage === 'gestion-clinicas' ? '#ffffff' : '#e5e7eb'}
                   >
                     {isMobile ? 'Clínicas' : 'Gestión de Clínicas'}
                     {activePage === 'gestion-clinicas' && !isMobile && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '-8px',
-                        left: '0',
-                        right: '0',
-                        height: '2px',
-                        backgroundColor: '#ffffff',
-                        borderRadius: '1px'
-                      }} />
+                      <div className="header-nav-link-indicator" />
                     )}
                   </a>
                   <a 
                     href="/gestion-usuarios" 
                     onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                    style={{
-                      color: activePage === 'gestion-usuarios' ? '#ffffff' : '#e5e7eb',
-                      textDecoration: 'none',
-                      fontWeight: activePage === 'gestion-usuarios' ? '600' : '500',
-                      fontSize: isMobile ? '18px' : '16px',
-                      transition: 'color 0.2s ease',
-                      position: 'relative',
-                      padding: isMobile ? '8px 0' : '0',
-                      width: isMobile ? '100%' : 'auto',
-                      whiteSpace: isMobile ? 'nowrap' : 'normal'
-                    }}
+                    className={`header-nav-link ${activePage === 'gestion-usuarios' ? 'active' : ''}`}
                     onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                     onMouseLeave={(e) => e.target.style.color = activePage === 'gestion-usuarios' ? '#ffffff' : '#e5e7eb'}
                   >
                     {isMobile ? 'Usuarios' : 'Gestión de Usuarios'}
                     {activePage === 'gestion-usuarios' && !isMobile && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '-8px',
-                        left: '0',
-                        right: '0',
-                        height: '2px',
-                        backgroundColor: '#ffffff',
-                        borderRadius: '1px'
-                      }} />
+                      <div className="header-nav-link-indicator" />
                     )}
                   </a>
                   <a 
                     href="/gestion-prestadores" 
                     onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                    style={{
-                      color: activePage === 'gestion-prestadores' ? '#ffffff' : '#e5e7eb',
-                      textDecoration: 'none',
-                      fontWeight: activePage === 'gestion-prestadores' ? '600' : '500',
-                      fontSize: isMobile ? '18px' : '16px',
-                      transition: 'color 0.2s ease',
-                      position: 'relative',
-                      padding: isMobile ? '8px 0' : '0',
-                      width: isMobile ? '100%' : 'auto',
-                      whiteSpace: isMobile ? 'nowrap' : 'normal'
-                    }}
+                    className={`header-nav-link ${activePage === 'gestion-prestadores' ? 'active' : ''}`}
                     onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                     onMouseLeave={(e) => e.target.style.color = activePage === 'gestion-prestadores' ? '#ffffff' : '#e5e7eb'}
                   >
                     {isMobile ? 'Prestadores' : 'Gestión de Prestadores'}
                     {activePage === 'gestion-prestadores' && !isMobile && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '-8px',
-                        left: '0',
-                        right: '0',
-                        height: '2px',
-                        backgroundColor: '#ffffff',
-                        borderRadius: '1px'
-                      }} />
+                      <div className="header-nav-link-indicator" />
                     )}
                   </a>
                   <a 
                     href="/reportes" 
                     onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                    style={{
-                      color: activePage === 'reportes' ? '#ffffff' : '#e5e7eb',
-                      textDecoration: 'none',
-                      fontWeight: activePage === 'reportes' ? '600' : '500',
-                      fontSize: isMobile ? '18px' : '16px',
-                      transition: 'color 0.2s ease',
-                      position: 'relative',
-                      padding: isMobile ? '8px 0' : '0',
-                      width: isMobile ? '100%' : 'auto'
-                    }}
+                    className={`header-nav-link ${activePage === 'reportes' ? 'active' : ''}`}
                     onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                     onMouseLeave={(e) => e.target.style.color = activePage === 'reportes' ? '#ffffff' : '#e5e7eb'}
                   >
                     Reportes
                     {activePage === 'reportes' && !isMobile && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '-8px',
-                        left: '0',
-                        right: '0',
-                        height: '2px',
-                        backgroundColor: '#ffffff',
-                        borderRadius: '1px'
-                      }} />
+                      <div className="header-nav-link-indicator" />
                     )}
                   </a>
                 </>
@@ -323,71 +172,36 @@ const Header = ({ user, activePage = '' }) => {
               <a 
                 href="/contact" 
                 onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                style={{
-                  color: activePage === 'contact' ? '#ffffff' : '#e5e7eb',
-                  textDecoration: 'none',
-                  fontWeight: activePage === 'contact' ? '600' : '500',
-                  fontSize: isMobile ? '18px' : '16px',
-                  transition: 'color 0.2s ease',
-                  position: 'relative',
-                  padding: isMobile ? '8px 0' : '0',
-                  width: isMobile ? '100%' : 'auto'
-                }}
+                className={`header-nav-link ${activePage === 'contact' ? 'active' : ''}`}
                 onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                 onMouseLeave={(e) => e.target.style.color = activePage === 'contact' ? '#ffffff' : '#e5e7eb'}
               >
                 Contacto
                 {activePage === 'contact' && !isMobile && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '-8px',
-                    left: '0',
-                    right: '0',
-                    height: '2px',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '1px'
-                  }} />
+                  <div className="header-nav-link-indicator" />
                 )}
               </a>
             </div>
 
-            {/* Action Buttons */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px',
-              flexDirection: isMobile ? 'column' : 'row',
-              width: isMobile ? '100%' : 'auto',
-              marginTop: isMobile ? '20px' : '0'
-            }}>
+            {/* Botones de Acción (Toggle Vista y Cerrar Sesión/Login) */}
+            <div className="header-actions">
+              {/* Botón Toggle de Vista (solo para Admin) */}
+              {user && user.rol === 'AD' && setViewRole && (
+                <button
+                  onClick={toggleViewRole}
+                  className={`header-toggle-btn ${viewRole === 'US' ? 'view-user' : 'view-admin'}`}
+                  title={viewRole === 'US' ? 'Cambiar a Vista Administrador' : 'Cambiar a Vista Usuario de Salud'}
+                >
+                  {viewRole === 'US' ? 'Vista Admin' : 'Vista Usuario'}
+                </button>
+              )}
+
+              {/* Botón Cerrar Sesión o Iniciar Sesión */}
               {user ? (
                 <a 
                   href={`${config.BACKEND_URL}/api/auth/logout`}
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                  style={{
-                    padding: isMobile ? '12px 20px' : '10px 20px',
-                    backgroundColor: '#dc2626',
-                    color: '#ffffff',
-                    textDecoration: 'none',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    fontSize: isMobile ? '16px' : '14px',
-                    transition: 'all 0.2s ease',
-                    border: '2px solid #dc2626',
-                    cursor: 'pointer',
-                    width: isMobile ? '100%' : 'auto',
-                    textAlign: 'center'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#b91c1c';
-                    e.target.style.borderColor = '#b91c1c';
-                    e.target.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = '#dc2626';
-                    e.target.style.borderColor = '#dc2626';
-                    e.target.style.transform = 'translateY(0)';
-                  }}
+                  className="header-logout-btn"
                 >
                   Cerrar Sesión
                 </a>
@@ -402,31 +216,8 @@ const Header = ({ user, activePage = '' }) => {
                     authUrl.searchParams.set('redirect_uri', config.CALLBACK_URL);
                     authUrl.searchParams.set('state', Math.random().toString(36).substring(2, 15));
                     window.location.href = authUrl.toString();
-                  }} 
-                  style={{
-                    padding: isMobile ? '12px 20px' : '10px 20px',
-                    backgroundColor: '#ffffff',
-                    color: '#3b82f6',
-                    textDecoration: 'none',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    fontSize: isMobile ? '16px' : '14px',
-                    transition: 'all 0.2s ease',
-                    border: '2px solid #ffffff',
-                    cursor: 'pointer',
-                    width: isMobile ? '100%' : 'auto',
-                    textAlign: 'center'
                   }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#f8fafc';
-                    e.target.style.color = '#1e40af';
-                    e.target.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = '#ffffff';
-                    e.target.style.color = '#3b82f6';
-                    e.target.style.transform = 'translateY(0)';
-                  }}
+                  className="header-login-btn"
                 >
                   Iniciar Sesión
                 </button>

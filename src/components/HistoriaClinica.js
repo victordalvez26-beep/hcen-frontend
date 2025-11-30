@@ -9,6 +9,7 @@ const HistoriaClinica = () => {
   const [documentosClinicos, setDocumentosClinicos] = useState([]);
   const [loadingDocumentos, setLoadingDocumentos] = useState(false);
   const [error, setError] = useState(null);
+  const [descargandoHistoria, setDescargandoHistoria] = useState(false);
   const [filtros, setFiltros] = useState({
     categoria: 'todos',
     institucion: 'todos',
@@ -114,6 +115,59 @@ const HistoriaClinica = () => {
     }
   };
 
+  const descargarHistoriaCompleta = async () => {
+    setDescargandoHistoria(true);
+    try {
+      const url = `${config.BACKEND_URL}/api/metadatos-documento/paciente/historia`;
+      console.log('📥 Descargando historia clínica completa desde:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al descargar historia clínica: ${response.status}`);
+      }
+
+      // Obtener el blob del archivo
+      const blob = await response.blob();
+      
+      // Crear un enlace temporal para descargar
+      const urlBlob = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = urlBlob;
+      
+      // Obtener el nombre del archivo del header Content-Disposition si está disponible
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'historia-clinica-completa.pdf';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpiar
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(urlBlob);
+      
+      console.log('✅ Historia clínica descargada exitosamente');
+    } catch (error) {
+      console.error('❌ Error descargando historia clínica:', error);
+      alert('No se pudo descargar la historia clínica completa. Por favor, intente más tarde.');
+    } finally {
+      setDescargandoHistoria(false);
+    }
+  };
+
   const handleLogout = () => {
     window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
   };
@@ -157,6 +211,11 @@ const HistoriaClinica = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatCategoria = (categoria) => {
+    if (!categoria) return 'Sin Categoría';
+    return categoria.replaceAll('_', ' ');
   };
 
   if (loading) {
@@ -254,6 +313,102 @@ const HistoriaClinica = () => {
       </div>
 
       <div className="container" style={{paddingTop: '60px', paddingBottom: '60px'}}>
+        {/* Botón de Descarga de Historia Completa */}
+        <div className="row mb-4">
+          <div className="col-12">
+            <div style={{ 
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '20px 24px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px'
+            }}>
+              <div style={{ flex: '1', minWidth: '200px' }}>
+                <div style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: '4px'
+                }}>
+                  <i className="flaticon-download" style={{ 
+                    fontSize: '24px', 
+                    color: '#3b82f6',
+                    marginRight: '12px'
+                  }}></i>
+                  <h5 style={{ 
+                    marginBottom: '0',
+                    color: '#1f2b7b',
+                    fontWeight: '600',
+                    fontSize: '18px'
+                  }}>
+                    Descargar Historia Clínica Completa
+                  </h5>
+                </div>
+                <p style={{ 
+                  marginBottom: '0',
+                  marginLeft: '36px',
+                  color: '#64748b',
+                  fontSize: '14px'
+                }}>
+                  Obtén todos tus documentos médicos en un solo archivo PDF
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={descargarHistoriaCompleta}
+                disabled={descargandoHistoria || loadingDocumentos}
+                style={{
+                  padding: '12px 28px',
+                  backgroundColor: descargandoHistoria || loadingDocumentos ? '#cbd5e1' : '#3b82f6',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  cursor: descargandoHistoria || loadingDocumentos ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: descargandoHistoria || loadingDocumentos ? 'none' : '0 2px 8px rgba(59, 130, 246, 0.25)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: descargandoHistoria || loadingDocumentos ? 'none' : 'auto'
+                }}
+                onMouseEnter={(e) => {
+                  if (!descargandoHistoria && !loadingDocumentos) {
+                    e.currentTarget.style.backgroundColor = '#2563eb';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.35)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!descargandoHistoria && !loadingDocumentos) {
+                    e.currentTarget.style.backgroundColor = '#3b82f6';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.25)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {descargandoHistoria ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" style={{width: '16px', height: '16px', borderWidth: '2px'}}></span>
+                    Descargando...
+                  </>
+                ) : (
+                  <>
+                    <i className="flaticon-download" style={{fontSize: '18px'}}></i>
+                    Descargar PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Tarjetas de Resumen */}
         <div className="row g-4 mb-4">
           <div className="col-md-4">
@@ -343,7 +498,7 @@ const HistoriaClinica = () => {
                   >
                     <option value="todos">Todas las categorías</option>
                     {categorias.map(categoria => (
-                      <option key={categoria} value={categoria}>{categoria}</option>
+                      <option key={categoria} value={categoria}>{formatCategoria(categoria)}</option>
                     ))}
                   </select>
                 </div>
@@ -568,7 +723,7 @@ const HistoriaClinica = () => {
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px'
                             }}>
-                              {documento.categoria}
+                              {formatCategoria(documento.categoria)}
                             </span>
                             <span style={{
                               marginLeft: '12px', 

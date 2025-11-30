@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Home from './components/Home';
 import HistoriaClinica from './components/HistoriaClinica';
@@ -21,11 +21,96 @@ import './styles/components.css';
 function AppContent() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewRole, setViewRole] = useState(null); // Rol de vista activo (para cambio de perspectiva)
   const location = useLocation();
+  const previousUserId = useRef(null); // Para rastrear cambios de usuario
+  const viewRoleInitialized = useRef(false); // Para evitar inicializaciones múltiples
+
+  // Función para obtener viewRole desde localStorage
+  const getViewRoleFromStorage = (userId) => {
+    if (!userId) return null;
+    const stored = localStorage.getItem(`viewRole_${userId}`);
+    return stored || null;
+  };
+
+  // Función para guardar viewRole en localStorage
+  const saveViewRoleToStorage = (userId, role) => {
+    if (userId && role) {
+      localStorage.setItem(`viewRole_${userId}`, role);
+    } else if (userId) {
+      localStorage.removeItem(`viewRole_${userId}`);
+    }
+  };
 
   useEffect(() => {
     checkSession();
   }, []);
+  
+  // Inicializar viewRole solo cuando el usuario cambia (nuevo login o logout)
+  // Usar localStorage para persistir la preferencia del usuario
+  useEffect(() => {
+    const currentUserId = user?.uid || null;
+    
+    // Si el usuario cambió (nuevo login o logout)
+    if (previousUserId.current !== currentUserId) {
+      const oldUserId = previousUserId.current;
+      previousUserId.current = currentUserId;
+      viewRoleInitialized.current = false;
+      
+      if (user?.uid) {
+        // Intentar cargar viewRole desde localStorage
+        const storedViewRole = getViewRoleFromStorage(user.uid);
+        if (storedViewRole && (storedViewRole === 'AD' || storedViewRole === 'US')) {
+          // Si hay un viewRole guardado y es válido, usarlo
+          setViewRole(storedViewRole);
+        } else {
+          // Si no hay viewRole guardado, inicializar con el rol real
+          setViewRole(user.rol);
+          saveViewRoleToStorage(user.uid, user.rol);
+        }
+        viewRoleInitialized.current = true;
+      } else {
+        // Resetear si no hay usuario (logout)
+        setViewRole(null);
+        if (oldUserId) {
+          localStorage.removeItem(`viewRole_${oldUserId}`);
+        }
+      }
+    } else if (user?.uid && !viewRoleInitialized.current) {
+      // Si el usuario no cambió pero aún no se inicializó (puede pasar en re-renders)
+      // Cargar desde localStorage o usar el rol real
+      const storedViewRole = getViewRoleFromStorage(user.uid);
+      if (storedViewRole && (storedViewRole === 'AD' || storedViewRole === 'US')) {
+        setViewRole(storedViewRole);
+      } else {
+        setViewRole(user.rol);
+        saveViewRoleToStorage(user.uid, user.rol);
+      }
+      viewRoleInitialized.current = true;
+    }
+    // Si el usuario no cambió y ya está inicializado, NO hacer nada
+    // Esto previene que se resetee cuando el objeto user cambia de referencia
+  }, [user]); // Solo dependemos de user
+  
+  // Función wrapper para setViewRole que también guarda en localStorage
+  const setViewRoleWithStorage = (newRole) => {
+    setViewRole(newRole);
+    if (user?.uid) {
+      saveViewRoleToStorage(user.uid, newRole);
+    }
+  };
+
+  // Efecto adicional para restaurar viewRole desde localStorage si se pierde
+  // Esto puede pasar si el componente se re-renderiza y el estado se pierde
+  useEffect(() => {
+    if (user?.uid && user.rol === 'AD' && !viewRole) {
+      // Si es admin y no hay viewRole, intentar restaurar desde localStorage
+      const storedViewRole = getViewRoleFromStorage(user.uid);
+      if (storedViewRole && (storedViewRole === 'AD' || storedViewRole === 'US')) {
+        setViewRole(storedViewRole);
+      }
+    }
+  }, [user?.uid, user?.rol, viewRole]);
   
   const checkSession = async () => {
     try {
@@ -77,6 +162,7 @@ function AppContent() {
     if (location.pathname.startsWith('/documento/')) return 'historia';
     if (location.pathname === '/gestion-clinicas') return 'gestion-clinicas';
     if (location.pathname === '/gestion-usuarios') return 'gestion-usuarios';
+    if (location.pathname === '/gestion-prestadores') return 'gestion-prestadores';
     if (location.pathname === '/gestion-politicas') return 'gestion-politicas';
     if (location.pathname === '/reportes') return 'reportes';
     if (location.pathname === '/mi-perfil') return 'mi-perfil';
@@ -136,8 +222,15 @@ function AppContent() {
 
   return (
     <div className="App">
-      {location.pathname !== '/complete-profile' && <Header user={user} activePage={getActivePage()} />}
-      <div style={{ paddingTop: location.pathname !== '/complete-profile' ? '70px' : '0' }}>
+      {location.pathname !== '/complete-profile' && (
+        <Header 
+          user={user} 
+          activePage={getActivePage()} 
+          viewRole={viewRole}
+          setViewRole={setViewRoleWithStorage}
+        />
+      )}
+      <div style={{ paddingTop: location.pathname !== '/complete-profile' ? '70px' : '0' }} className="main-content-wrapper">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/complete-profile" element={
