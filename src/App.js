@@ -61,11 +61,14 @@ function AppContent() {
       if (user?.uid) {
         // Intentar cargar viewRole desde localStorage
         const storedViewRole = getViewRoleFromStorage(user.uid);
-        if (storedViewRole && (storedViewRole === 'AD' || storedViewRole === 'US')) {
+        
+        // Validar que el rol almacenado sea coherente con los permisos reales
+        // Si el usuario NO es admin, NO puede tener viewRole 'AD'
+        if (storedViewRole && (storedViewRole === 'US' || (storedViewRole === 'AD' && user.rol === 'AD'))) {
           // Si hay un viewRole guardado y es válido, usarlo
           setViewRole(storedViewRole);
         } else {
-          // Si no hay viewRole guardado, inicializar con el rol real
+          // Si no hay viewRole guardado o es inválido, inicializar con el rol real
           setViewRole(user.rol);
           saveViewRoleToStorage(user.uid, user.rol);
         }
@@ -81,7 +84,9 @@ function AppContent() {
       // Si el usuario no cambió pero aún no se inicializó (puede pasar en re-renders)
       // Cargar desde localStorage o usar el rol real
       const storedViewRole = getViewRoleFromStorage(user.uid);
-      if (storedViewRole && (storedViewRole === 'AD' || storedViewRole === 'US')) {
+      
+      // Validar coherencia
+      if (storedViewRole && (storedViewRole === 'US' || (storedViewRole === 'AD' && user.rol === 'AD'))) {
         setViewRole(storedViewRole);
       } else {
         setViewRole(user.rol);
@@ -123,10 +128,30 @@ function AppContent() {
         }
       });
       
-      const data = await response.json();
+      const sessionData = await response.json();
       
-      if (data.authenticated) {
-        setUser(data);
+      if (sessionData.authenticated) {
+        // Obtener perfil completo (que lee de INUS)
+        try {
+            const profileResponse = await fetch(`${config.BACKEND_URL}/api/users/profile`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                // Combinar datos: perfil tiene prioridad, sesión tiene rol/auth
+                setUser({ ...sessionData, ...profileData });
+            } else {
+                console.error('Error obteniendo perfil:', profileResponse.status);
+                setUser(sessionData); // Fallback
+            }
+        } catch (error) {
+            console.error('Error de red obteniendo perfil:', error);
+            setUser(sessionData); // Fallback
+        }
       } else {
         setUser(null);
       }
@@ -256,7 +281,7 @@ function AppContent() {
         } />
         <Route path="/gestion-usuarios" element={
           <AdminRoute>
-            <GestionUsuarios />
+            <GestionUsuarios currentUser={user} onSessionUpdate={checkSession} />
           </AdminRoute>
         } />
         <Route path="/gestion-prestadores" element={
