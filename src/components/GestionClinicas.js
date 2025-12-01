@@ -582,7 +582,7 @@ const GestionClinicas = () => {
                               <td style={{padding: '15px 20px'}}>
                                 <strong style={{color: '#1f2937'}}>{nodo.nombre}</strong>
                               </td>
-                              <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace'}}>{nodo.rut || '-'}</td>
+                              <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace'}}>{nodo.RUT || nodo.rut || '-'}</td>
                               <td style={{padding: '15px 20px', color: '#374151'}}>
                                 {formatDepartamentoDisplay(nodo.departamento)}
                                 {nodo.localidad && <><br/><small style={{color: '#6b7280'}}>{nodo.localidad}</small></>}
