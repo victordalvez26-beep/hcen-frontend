@@ -215,3 +215,18 @@ select:focus {
   color: var(--blue-ncs);
   text-decoration: underline;
 }
+
+/* Estilos para botones de cerrar (btn-close) */
+.btn-close {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+.btn-close i {
+  font-size: 20px;
+  line-height: 1;
+  display: block;
+}

@@ -113,7 +113,7 @@ const Contacto = () => {
                       margin: '0 auto 25px',
                       boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
                     }}>
-                      <i className="fa fa-map-marker-alt" style={{
+                      <i className="fa fa-map-marker" style={{
                         fontSize: '32px',
                         color: '#ffffff'
                       }}></i>
@@ -232,7 +232,7 @@ const Contacto = () => {
                       margin: '0 auto 25px',
                       boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
                     }}>
-                      <i className="fa fa-clock" style={{
+                      <i className="fa fa-clock-o" style={{
                         fontSize: '32px',
                         color: '#ffffff'
                       }}></i>
@@ -333,7 +333,7 @@ const Contacto = () => {
                       backgroundColor: '#f8fafc',
                       borderRadius: '12px'
                     }}>
-                      <i className="fa fa-tools" style={{
+                      <i className="fa fa-wrench" style={{
                         fontSize: '32px',
                         color: '#10b981',
                         marginBottom: '15px'

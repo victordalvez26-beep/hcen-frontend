@@ -248,7 +248,9 @@ const GestionUsuarios = ({ currentUser, onSessionUpdate }) => {
           }}>
             <i className="fa fa-check-circle" style={{marginRight: '8px'}}></i>
             {message}
-            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
+            <button type="button" className="btn-close" onClick={() => setMessage('')}>
+              <i className="fa fa-times"></i>
+            </button>
           </div>
         )}
 
@@ -494,7 +496,9 @@ const GestionUsuarios = ({ currentUser, onSessionUpdate }) => {
                   className="btn-close"
                   onClick={() => setShowModal(false)}
                   style={{fontSize: '20px'}}
-                ></button>
+                >
+                  <i className="fa fa-times"></i>
+                </button>
               </div>
               <div className="modal-body" style={{padding: '30px'}}>
                 <div className="mb-4">

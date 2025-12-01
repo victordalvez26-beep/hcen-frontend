@@ -320,7 +320,9 @@ const GestionPoliticas = () => {
           }}>
             <i className={`fa ${message.includes('Error') ? 'fa-exclamation-circle' : 'fa-check-circle'}`} style={{marginRight: '8px'}}></i>
             {message}
-            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
+            <button type="button" className="btn-close" onClick={() => setMessage('')}>
+              <i className="fa fa-times"></i>
+            </button>
           </div>
         )}
 
@@ -589,7 +591,9 @@ const GestionPoliticas = () => {
                     resetForm();
                   }}
                   style={{fontSize: '20px'}}
-                ></button>
+                >
+                  <i className="fa fa-times"></i>
+                </button>
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="modal-body" style={{padding: '30px', maxHeight: '70vh', overflowY: 'auto'}}>

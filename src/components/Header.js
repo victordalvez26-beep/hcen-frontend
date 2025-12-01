@@ -214,7 +214,7 @@ const Header = ({ user, activePage = '', viewRole = null, setViewRole = null }) 
               {/* Botón Cerrar Sesión o Iniciar Sesión */}
               {user ? (
                 <a 
-                  href={`${config.BACKEND_URL}/api/auth/logout`}
+                  href={`${config.BACKEND_URL}/api/auth/logout_hcen`}
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
                   className="header-logout-btn"
                 >

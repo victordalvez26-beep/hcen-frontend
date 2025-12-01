@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import config from '../config';
+import GenericPopup from './GenericPopup';
 
 const Home = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isMinor, setIsMinor] = useState(false);
+  const [popup, setPopup] = useState({ show: false, message: '', type: 'error' });
 
   const checkSession = useCallback(async () => {
     try {
@@ -122,9 +124,9 @@ const Home = () => {
       
     } catch (error) {
       console.error('❌ Error intercambiando token:', error);
-      // No mostrar alert si el token ya fue procesado (evitar spam)
+      // No mostrar popup si el token ya fue procesado (evitar spam)
       if (!sessionStorage.getItem('token_exchange_processed')) {
-        alert('Error al completar el login: ' + error.message);
+        setPopup({ show: true, message: 'Error al completar el login: ' + error.message, type: 'error' });
       }
       window.history.replaceState({}, document.title, window.location.pathname);
       setLoading(false);
@@ -456,7 +458,7 @@ const Home = () => {
                       color: '#3b82f6',
                       marginBottom: '15px'
                     }}>
-                      <i className="fa fa-map-marker-alt"></i>
+                      <i className="fa fa-map-marker"></i>
                     </div>
                     <h3 style={{
                       fontSize: '20px',
@@ -545,7 +547,7 @@ const Home = () => {
                       color: '#3b82f6',
                       marginBottom: '15px'
                     }}>
-                      <i className="fa fa-clock"></i>
+                      <i className="fa fa-clock-o"></i>
                     </div>
                     <h3 style={{
                       fontSize: '20px',
@@ -593,6 +595,13 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      <GenericPopup
+        show={popup.show}
+        onClose={() => setPopup({ ...popup, show: false })}
+        message={popup.message}
+        type={popup.type}
+      />
     </div>
   );
 };

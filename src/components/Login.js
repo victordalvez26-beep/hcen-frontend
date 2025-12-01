@@ -4,6 +4,7 @@ import GestionClinicas from './GestionClinicas';
 import config from '../config';
 
 const Login = () => {
+  const [popup, setPopup] = useState({ show: false, message: '', type: 'error' });
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isMinor, setIsMinor] = useState(false);
@@ -56,7 +57,7 @@ const Login = () => {
     if (error) {
       console.error('Error en autenticación:', error);
       sessionStorage.removeItem('token_exchange_processed');
-      alert('Error en la autenticación: ' + error);
+      setPopup({ show: true, message: 'Error en la autenticación: ' + error, type: 'error' });
       window.history.replaceState({}, document.title, window.location.pathname);
       setLoading(false);
     }
@@ -476,6 +477,13 @@ const Login = () => {
           </div>
         </div>
       </footer>
+
+      <GenericPopup
+        show={popup.show}
+        onClose={() => setPopup({ ...popup, show: false })}
+        message={popup.message}
+        type={popup.type}
+      />
     </>
   );
 };

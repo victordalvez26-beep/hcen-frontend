@@ -154,7 +154,9 @@ function GestionPrestadores() {
             marginBottom: '20px'
           }}>
             {mensaje.texto}
-            <button type="button" className="btn-close" onClick={() => setMensaje({ tipo: '', texto: '' })}></button>
+            <button type="button" className="btn-close" onClick={() => setMensaje({ tipo: '', texto: '' })}>
+              <i className="fa fa-times"></i>
+            </button>
           </div>
         )}
 
