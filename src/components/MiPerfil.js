@@ -1,27 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import config from '../config';
-import GenericPopup from './GenericPopup';
-
-// Función auxiliar para parsear fechas que pueden venir con formato [UTC] al final
-const parseFecha = (fechaString) => {
-  if (!fechaString) return null;
-  
-  // Remover [UTC] del final si existe
-  const fechaLimpia = fechaString.toString().replace(/\[UTC\]$/, '').trim();
-  
-  try {
-    const fecha = new Date(fechaLimpia);
-    // Verificar que la fecha sea válida
-    if (Number.isNaN(fecha.getTime())) {
-      console.warn('Fecha inválida:', fechaString);
-      return null;
-    }
-    return fecha;
-  } catch (error) {
-    console.warn('Error al parsear fecha:', fechaString, error);
-    return null;
-  }
-};
 
 const MiPerfil = () => {
   const [user, setUser] = useState(null);
@@ -35,25 +13,12 @@ const MiPerfil = () => {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    email: '',
-    telefono: '',
-    direccion: '',
-    departamento: '',
-    localidad: '',
-    primerNombre: '',
-    segundoNombre: '',
-    primerApellido: '',
-    segundoApellido: ''
-  });
   const [message, setMessage] = useState('');
   const [clinicas, setClinicas] = useState([]);
   const [loadingClinicas, setLoadingClinicas] = useState(false);
   const [todosLosProfesionales, setTodosLosProfesionales] = useState(true); // Si true, todos los profesionales de la clínica
   const [especialidadesSeleccionadas, setEspecialidadesSeleccionadas] = useState([]); // Lista de especialidades seleccionadas
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  const [confirmPopup, setConfirmPopup] = useState({ show: false, message: '', onConfirm: null, title: '' });
   
   // Lista de especialidades disponibles (mismas para todas las clínicas)
   const especialidadesDisponibles = [
@@ -254,8 +219,8 @@ const MiPerfil = () => {
         console.log(`✅ Accesos recibidos:`, data);
         // Ordenar por fecha descendente (más recientes primero)
         const accesosOrdenados = Array.isArray(data) ? data.sort((a, b) => {
-          const fechaA = parseFecha(a.fecha) || new Date(0);
-          const fechaB = parseFecha(b.fecha) || new Date(0);
+          const fechaA = a.fecha ? new Date(a.fecha) : new Date(0);
+          const fechaB = b.fecha ? new Date(b.fecha) : new Date(0);
           return fechaB - fechaA;
         }) : [];
         console.log(`📊 Total de accesos ordenados: ${accesosOrdenados.length}`);
@@ -477,46 +442,6 @@ const MiPerfil = () => {
     }
   };
 
-  const handleEditClick = () => {
-    setEditFormData({
-      email: user.email || '',
-      telefono: user.telefono || '',
-      direccion: user.direccion || '',
-      departamento: user.departamento || '',
-      localidad: user.localidad || '',
-      primerNombre: user.primerNombre || '',
-      segundoNombre: user.segundoNombre || '',
-      primerApellido: user.primerApellido || '',
-      segundoApellido: user.segundoApellido || ''
-    });
-    setShowEditModal(true);
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${config.BACKEND_URL}/api/users/update`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editFormData)
-      });
-
-      if (response.ok) {
-        setMessage('Perfil actualizado exitosamente');
-        setShowEditModal(false);
-        checkSession(); // Reload user data
-        setTimeout(() => setMessage(''), 5000);
-      } else {
-        const errorData = await response.json();
-        setMessage('Error actualizando perfil: ' + (errorData.error || 'Error desconocido'));
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setMessage('Error de conexión al actualizar perfil');
-    }
-  };
-
   const loadPoliticas = async () => {
     try {
       setLoadingPoliticas(true);
@@ -543,6 +468,15 @@ const MiPerfil = () => {
     }
   };
 
+  const filteredPoliticas = politicas.filter(politica => {
+    if (!searchTerm) return true;
+    
+    // Buscar por clínica
+    const clinicaStr = politica.clinicaAutorizada?.toLowerCase() || '';
+    const especialidadesStr = parseEspecialidadesParaMostrar(politica.especialidadesAutorizadas)?.toLowerCase() || '';
+    return clinicaStr.includes(searchTerm.toLowerCase()) || especialidadesStr.includes(searchTerm.toLowerCase());
+  });
+  
   // Helper para parsear especialidades y mostrarlas
   const parseEspecialidadesParaMostrar = (especialidadesStr) => {
     if (!especialidadesStr || especialidadesStr.trim() === '') {
@@ -570,20 +504,6 @@ const MiPerfil = () => {
       return especialidadesStr;
     }
   };
-
-  const filteredPoliticas = politicas.filter(politica => {
-    if (!searchTerm) return true;
-    
-    const searchLower = searchTerm.toLowerCase();
-    
-    // Buscar por clínica
-    const clinicaStr = politica.clinicaAutorizada?.toLowerCase() || '';
-    
-    // Buscar por profesional autorizado
-    const profesionalStr = politica.profesionalAutorizado?.toLowerCase() || '';
-    
-    return clinicaStr.includes(searchLower) || profesionalStr.includes(searchLower);
-  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -630,23 +550,12 @@ const MiPerfil = () => {
       politicaData.especialidadesAutorizadas = especialidadesSeleccionadas;
     }
     
-    // Validar fecha de vencimiento si la duración es temporal
-    if (formData.duracion === 'TEMPORAL') {
-      if (!formData.fechaVencimiento || formData.fechaVencimiento.trim() === '') {
-        setMessage('La fecha de vencimiento es obligatoria cuando la duración es temporal.');
-        return;
-      }
-      politicaData.fechaVencimiento = formData.fechaVencimiento;
-    } else {
-      // Si la duración no es temporal, eliminar el campo fechaVencimiento si está vacío
-      if (!politicaData.fechaVencimiento || politicaData.fechaVencimiento.trim() === '') {
-        delete politicaData.fechaVencimiento;
-      }
-    }
-    
     // Limpiar campos vacíos que pueden causar problemas de deserialización
     if (!politicaData.tipoDocumento || politicaData.tipoDocumento.trim() === '') {
       delete politicaData.tipoDocumento;
+    }
+    if (!politicaData.fechaVencimiento || politicaData.fechaVencimiento.trim() === '') {
+      delete politicaData.fechaVencimiento;
     }
     if (!politicaData.referencia || politicaData.referencia.trim() === '') {
       delete politicaData.referencia;
@@ -695,38 +604,33 @@ const MiPerfil = () => {
     setTimeout(() => setMessage(''), 5000);
   };
 
-  const handleDelete = (id) => {
-    setConfirmPopup({
-      show: true,
-      title: 'Confirmar Eliminación',
-      message: '¿Está seguro de que desea eliminar esta política?',
-      onConfirm: async () => {
-        try {
-          const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/${id}`, {
-            method: 'DELETE',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Está seguro de que desea eliminar esta política?')) {
+      return;
+    }
 
-          if (response.ok) {
-            setMessage('Política eliminada exitosamente');
-            loadPoliticas();
-          } else {
-            const errorData = await response.json();
-            setMessage('Error eliminando política: ' + (errorData.error || 'Error desconocido'));
-          }
-        } catch (error) {
-          console.error('Error eliminando política:', error);
-          setMessage('Error de conexión al eliminar política');
-        } finally {
-          setConfirmPopup({ show: false, message: '', onConfirm: null, title: '' });
+    try {
+      const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
         }
+      });
 
-        setTimeout(() => setMessage(''), 5000);
+      if (response.ok) {
+        setMessage('Política eliminada exitosamente');
+        loadPoliticas();
+      } else {
+        const errorData = await response.json();
+        setMessage('Error eliminando política: ' + (errorData.error || 'Error desconocido'));
       }
-    });
+    } catch (error) {
+      console.error('Error eliminando política:', error);
+      setMessage('Error de conexión al eliminar política');
+    }
+
+    setTimeout(() => setMessage(''), 5000);
   };
 
   const resetForm = () => {
@@ -776,26 +680,6 @@ const MiPerfil = () => {
     };
     return labels[gestion] || gestion;
   };
-
-  const formatTipoDocumento = (tipo) => {
-    if (!tipo) return '';
-    return tipo.replaceAll('_', ' ');
-  };
-
-  const tiposDocumento = [
-    { value: '', label: 'Seleccione un tipo de documento' },
-    { value: 'RESUMEN_ALTA', label: 'Resumen de Alta' },
-    { value: 'INFORME_LABORATORIO', label: 'Informe de Laboratorio' },
-    { value: 'RADIOGRAFIA', label: 'Radiografía' },
-    { value: 'RECETA_MEDICA', label: 'Receta Médica' },
-    { value: 'CONSULTA_MEDICA', label: 'Consulta Médica' },
-    { value: 'CIRUGIA', label: 'Cirugía' },
-    { value: 'ESTUDIO_IMAGENOLOGIA', label: 'Estudio de Imagenología' },
-    { value: 'ELECTROCARDIOGRAMA', label: 'Electrocardiograma' },
-    { value: 'INFORME_PATOLOGIA', label: 'Informe de Patología' },
-    { value: 'VACUNACION', label: 'Vacunación' },
-    { value: 'OTROS', label: 'Otros' }
-  ];
 
   const getAlcanceBadgeColor = (alcance) => {
     const colors = {
@@ -932,9 +816,7 @@ const MiPerfil = () => {
           }}>
             <i className={`fa ${message.includes('Error') ? 'fa-exclamation-circle' : 'fa-check-circle'}`} style={{marginRight: '8px'}}></i>
             {message}
-            <button type="button" className="btn-close" onClick={() => setMessage('')}>
-              <i className="fa fa-times"></i>
-            </button>
+            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
           </div>
         )}
 
@@ -1101,34 +983,17 @@ const MiPerfil = () => {
             border: '1px solid var(--border-color)'
           }}>
             <div className="card-body" style={{padding: '40px'}}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #e5e7eb', paddingBottom: '15px'}}>
-                <h4 style={{
-                  color: '#1f2937',
-                  fontSize: '24px',
-                  fontWeight: '600',
-                  margin: 0
-                }}>
-                  <i className="fa fa-user-circle" style={{marginRight: '10px', color: '#3b82f6'}}></i>
-                  Información del Usuario
-                </h4>
-                <button
-                  onClick={handleEditClick}
-                  className="btn btn-primary"
-                  style={{
-                    backgroundColor: '#3b82f6',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    fontWeight: '600',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}
-                >
-                  <i className="fa fa-edit"></i>
-                  Editar Perfil
-                </button>
-              </div>
+              <h4 style={{
+                color: '#1f2937',
+                fontSize: '24px',
+                fontWeight: '600',
+                marginBottom: '30px',
+                borderBottom: '2px solid #e5e7eb',
+                paddingBottom: '15px'
+              }}>
+                <i className="fa fa-user-circle" style={{marginRight: '10px', color: '#3b82f6'}}></i>
+                Información del Usuario
+              </h4>
               
               <div className="row">
                 <div className="col-md-6 mb-4">
@@ -1252,30 +1117,6 @@ const MiPerfil = () => {
                     </div>
                   </div>
                 )}
-
-                <div className="col-md-12 mb-4">
-                  <label style={{
-                    color: '#6b7280',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '8px',
-                    display: 'block'
-                  }}>
-                    Dirección
-                  </label>
-                  <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: '#f8fafc',
-                    borderRadius: '8px',
-                    color: '#1f2937',
-                    fontSize: '16px',
-                    border: '1px solid #e5e7eb'
-                  }}>
-                    {user.direccion ? `${user.direccion}${user.localidad ? `, ${user.localidad}` : ''}${user.departamento ? `, ${user.departamento}` : ''}` : 'No disponible'}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -1362,7 +1203,7 @@ const MiPerfil = () => {
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="Ingrese el nombre del profesional o número de clínica..."
+                          placeholder="Ingrese el ID del profesional o nombre de clínica..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           style={{
@@ -1411,11 +1252,9 @@ const MiPerfil = () => {
                             <tr style={{backgroundColor: '#f8fafc'}}>
                               <th style={{padding: '15px 20px', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', color: '#374151', fontWeight: '600'}}>ID</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Autorizado</th>
-                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Profesional Autorizado</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Alcance</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Duración</th>
                               <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Gestión</th>
-                              <th style={{padding: '15px 20px', color: '#374151', fontWeight: '600'}}>Fecha de Creación</th>
                               <th style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', color: '#374151', fontWeight: '600'}}>Acciones</th>
                             </tr>
                           </thead>
@@ -1453,81 +1292,23 @@ const MiPerfil = () => {
                                     </div>
                                   </div>
                                 </td>
-                                <td style={{padding: '15px 20px', color: '#374151'}}>
-                                  {politica.profesionalAutorizado && politica.profesionalAutorizado !== '*' ? (
-                                    <span className="badge" style={{
-                                      backgroundColor: '#10b981',
-                                      color: '#ffffff',
-                                      padding: '8px 12px',
-                                      borderRadius: '6px',
-                                      fontWeight: '600',
-                                      fontSize: '13px',
-                                      display: 'inline-block'
-                                    }}>
-                                      <i className="fa fa-user-md" style={{marginRight: '5px'}}></i>
-                                      {politica.profesionalAutorizado}
-                                    </span>
-                                  ) : (
-                                    <span className="badge" style={{
-                                      backgroundColor: '#6b7280',
-                                      color: '#ffffff',
-                                      padding: '8px 12px',
-                                      borderRadius: '6px',
-                                      fontWeight: '600',
-                                      fontSize: '13px',
-                                      display: 'inline-block'
-                                    }}>
-                                      <i className="fa fa-users" style={{marginRight: '5px'}}></i>
-                                      Todos
-                                    </span>
-                                  )}
-                                </td>
                                 <td style={{padding: '15px 20px'}}>
-                                  <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                                    <span className="badge" style={{
-                                      padding: '8px 12px',
-                                      borderRadius: '5px',
-                                      fontWeight: '600',
-                                      fontSize: '12px',
-                                      backgroundColor: getAlcanceBadgeColor(politica.alcance),
-                                      color: '#ffffff',
-                                      alignSelf: 'flex-start'
-                                    }}>
-                                      {getAlcanceLabel(politica.alcance)}
-                                    </span>
-                                    {politica.alcance !== 'TODOS_LOS_DOCUMENTOS' && politica.tipoDocumento && (
-                                      <span className="badge" style={{
-                                        backgroundColor: '#8b5cf6',
-                                        color: '#ffffff',
-                                        padding: '6px 10px',
-                                        borderRadius: '6px',
-                                        fontSize: '12px',
-                                        fontWeight: '500',
-                                        alignSelf: 'flex-start'
-                                      }}>
-                                        <i className="fa fa-file-alt" style={{marginRight: '5px'}}></i>
-                                        {formatTipoDocumento(politica.tipoDocumento)}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <span className="badge" style={{
+                                    padding: '8px 12px',
+                                    borderRadius: '5px',
+                                    fontWeight: '600',
+                                    fontSize: '12px',
+                                    backgroundColor: getAlcanceBadgeColor(politica.alcance),
+                                    color: '#ffffff'
+                                  }}>
+                                    {getAlcanceLabel(politica.alcance)}
+                                  </span>
                                 </td>
                                 <td style={{padding: '15px 20px', color: '#374151'}}>
                                   {getDuracionLabel(politica.duracion)}
                                 </td>
                                 <td style={{padding: '15px 20px', color: '#374151'}}>
                                   {getGestionLabel(politica.gestion)}
-                                </td>
-                                <td style={{padding: '15px 20px', color: '#6b7280', fontSize: '13px'}}>
-                                  {(() => {
-                                    const fecha = parseFecha(politica.fechaCreacion);
-                                    return fecha ? fecha.toLocaleDateString('es-UY', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    }) : (politica.fechaCreacion || 'N/A');
-                                  })()}
                                 </td>
                                 <td style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px'}}>
                                   <button
@@ -1560,7 +1341,7 @@ const MiPerfil = () => {
                             ))}
                             {filteredPoliticas.length === 0 && (
                               <tr>
-                                <td colSpan="8" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
+                                <td colSpan="6" className="text-center" style={{padding: '40px', color: '#6b7280'}}>
                                   <i className="fa fa-shield-alt" style={{fontSize: '48px', marginBottom: '15px', opacity: '0.3'}}></i>
                                   <div style={{fontSize: '18px', fontWeight: '500'}}>No se encontraron políticas</div>
                                   <div style={{fontSize: '14px', marginTop: '5px'}}>
@@ -1633,7 +1414,7 @@ const MiPerfil = () => {
                           </thead>
                           <tbody>
                             {accesosHistoria.map(acceso => {
-                              const fecha = parseFecha(acceso.fecha);
+                              const fecha = acceso.fecha ? new Date(acceso.fecha) : null;
                               const fechaFormateada = fecha ? fecha.toLocaleString('es-UY', {
                                 year: 'numeric',
                                 month: '2-digit',
@@ -1869,16 +1650,13 @@ const MiPerfil = () => {
                                     </div>
                                   </td>
                                   <td style={{padding: '15px 20px', color: '#6b7280', fontSize: '13px'}}>
-                                    {(() => {
-                                      const fecha = parseFecha(solicitud.fechaSolicitud);
-                                      return fecha ? fecha.toLocaleDateString('es-UY', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      }) : '-';
-                                    })()}
+                                    {solicitud.fechaSolicitud ? new Date(solicitud.fechaSolicitud).toLocaleDateString('es-UY', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : '-'}
                                   </td>
                                   <td style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px'}}>
                                     <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
@@ -1991,9 +1769,7 @@ const MiPerfil = () => {
                     resetForm();
                   }}
                   style={{fontSize: '20px'}}
-                >
-                  <i className="fa fa-times"></i>
-                </button>
+                ></button>
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="modal-body" style={{padding: '30px', maxHeight: '70vh', overflowY: 'auto'}}>
@@ -2250,7 +2026,7 @@ const MiPerfil = () => {
                           fontWeight: '600',
                           marginBottom: '10px'
                         }}>
-                          Fecha de Vencimiento <span style={{color: '#dc2626'}}>*</span>
+                          Fecha de Vencimiento
                         </label>
                         <input
                           type="date"
@@ -2258,7 +2034,6 @@ const MiPerfil = () => {
                           className="form-control"
                           value={formData.fechaVencimiento}
                           onChange={(e) => setFormData({...formData, fechaVencimiento: e.target.value})}
-                          required
                           style={{
                             borderRadius: '8px',
                             border: '2px solid #e5e7eb',
@@ -2279,30 +2054,25 @@ const MiPerfil = () => {
                           fontWeight: '600',
                           marginBottom: '10px'
                         }}>
-                          Tipo de Documento <span style={{color: '#dc2626'}}>*</span>
+                          Tipo de Documento
                         </label>
-                        <select
+                        <input
+                          type="text"
                           id="tipoDocumento"
                           className="form-control"
                           value={formData.tipoDocumento}
                           onChange={(e) => setFormData({...formData, tipoDocumento: e.target.value})}
-                          required
-                          style={{
-                            borderRadius: '8px',
-                            border: '2px solid #e5e7eb',
-                            padding: '12px 15px',
-                            fontSize: '16px',
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            minHeight: '48px'
-                          }}
-                        >
-                          {tiposDocumento.map(tipo => (
-                            <option key={tipo.value} value={tipo.value}>
-                              {tipo.label}
-                            </option>
-                          ))}
-                        </select>
+                        style={{
+                          borderRadius: '8px',
+                          border: '2px solid #e5e7eb',
+                          padding: '12px 15px',
+                          fontSize: '16px',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          minHeight: '48px'
+                        }}
+                        placeholder="Ej: INFORME_MEDICO"
+                        />
                       </div>
                     )}
 
@@ -2385,210 +2155,9 @@ const MiPerfil = () => {
           </div>
         </div>
       )}
-
-      <GenericPopup
-        show={confirmPopup.show}
-        onClose={() => setConfirmPopup({ show: false, message: '', onConfirm: null, title: '' })}
-        message={confirmPopup.message}
-        type="warning"
-        title={confirmPopup.title}
-        showConfirm={true}
-        onConfirm={confirmPopup.onConfirm}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColor="#dc2626"
-      />
-      {/* Modal para Editar Perfil */}
-      {showEditModal && (
-        <div className="modal fade show" style={{
-          display: 'block',
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          zIndex: 1050
-        }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content" style={{
-              borderRadius: '15px',
-              border: 'none',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-            }}>
-              <div className="modal-header" style={{
-                borderBottom: '1px solid #e5e7eb',
-                padding: '20px 30px',
-                backgroundColor: 'var(--background-color)',
-                borderTopLeftRadius: '15px',
-                borderTopRightRadius: '15px'
-              }}>
-                <h5 className="modal-title" style={{
-                  color: 'var(--heading-color)',
-                  fontWeight: '600',
-                  fontSize: '20px'
-                }}>
-                  <i className="fa fa-user-edit" style={{marginRight: '10px', color: 'var(--primary-color)'}}></i>
-                  Editar Perfil
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowEditModal(false)}
-                  style={{fontSize: '20px'}}
-                ></button>
-              </div>
-              <form onSubmit={handleEditSubmit}>
-                <div className="modal-body" style={{padding: '30px', maxHeight: '70vh', overflowY: 'auto'}}>
-                  <div className="row">
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Primer Nombre</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editFormData.primerNombre}
-                        onChange={(e) => setEditFormData({...editFormData, primerNombre: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Segundo Nombre</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editFormData.segundoNombre}
-                        onChange={(e) => setEditFormData({...editFormData, segundoNombre: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Primer Apellido</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editFormData.primerApellido}
-                        onChange={(e) => setEditFormData({...editFormData, primerApellido: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Segundo Apellido</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editFormData.segundoApellido}
-                        onChange={(e) => setEditFormData({...editFormData, segundoApellido: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Email</label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        value={editFormData.email}
-                        onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Teléfono</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editFormData.telefono}
-                        onChange={(e) => setEditFormData({...editFormData, telefono: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-12 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Dirección</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editFormData.direccion}
-                        onChange={(e) => setEditFormData({...editFormData, direccion: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Localidad</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editFormData.localidad}
-                        onChange={(e) => setEditFormData({...editFormData, localidad: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      />
-                    </div>
-                    <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Departamento</label>
-                      <select
-                        className="form-control"
-                        value={editFormData.departamento}
-                        onChange={(e) => setEditFormData({...editFormData, departamento: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
-                      >
-                        <option value="">Seleccione...</option>
-                        <option value="MONTEVIDEO">Montevideo</option>
-                        <option value="CANELONES">Canelones</option>
-                        <option value="MALDONADO">Maldonado</option>
-                        <option value="ROCHA">Rocha</option>
-                        <option value="TREINTA_Y_TRES">Treinta y Tres</option>
-                        <option value="CERRO_LARGO">Cerro Largo</option>
-                        <option value="RIVERA">Rivera</option>
-                        <option value="ARTIGAS">Artigas</option>
-                        <option value="SALTO">Salto</option>
-                        <option value="PAYSANDU">Paysandú</option>
-                        <option value="RIO_NEGRO">Río Negro</option>
-                        <option value="SORIANO">Soriano</option>
-                        <option value="COLONIA">Colonia</option>
-                        <option value="SAN_JOSE">San José</option>
-                        <option value="FLORES">Flores</option>
-                        <option value="FLORIDA">Florida</option>
-                        <option value="LAVALLEJA">Lavalleja</option>
-                        <option value="DURAZNO">Durazno</option>
-                        <option value="TACUAREMBO">Tacuarembó</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer" style={{
-                  borderTop: '1px solid #e5e7eb',
-                  padding: '20px 30px',
-                  backgroundColor: 'var(--background-color)',
-                  borderBottomLeftRadius: '15px',
-                  borderBottomRightRadius: '15px'
-                }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowEditModal(false)}
-                    style={{padding: '10px 20px', borderRadius: '8px', fontWeight: '500'}}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    style={{
-                      padding: '10px 20px',
-                      borderRadius: '8px',
-                      fontWeight: '600',
-                      backgroundColor: '#3b82f6',
-                      border: 'none',
-                      color: '#ffffff',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <i className="fa fa-save"></i>
-                    Guardar Cambios
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };
 
 export default MiPerfil;
+

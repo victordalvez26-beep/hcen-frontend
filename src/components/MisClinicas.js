@@ -87,12 +87,13 @@ const MisClinicas = () => {
     setLoadingPoliticas(true);
     setPoliticas([]);
     
-    // Suponemos que el UID del usuario es su CI para las políticas, o usamos user.documento si está disponible
-    // El endpoint espera la CI
-    const ci = user.documento || user.uid.replace('uy-ci-', ''); // Ajustar según formato de UID
+    // El endpoint ahora extrae el CI del JWT automáticamente
+    // Pasamos un placeholder en el path por compatibilidad, pero el backend lo ignora y usa el CI del JWT
+    const ci = user.documento || user.uid.replace('uy-ci-', '') || 'current'; // 'current' como placeholder
     
     try {
-      // Llamar al endpoint que acabamos de modificar con el filtro tenantId
+      // Llamar al endpoint con el filtro tenantId
+      // El backend extraerá el CI del JWT del usuario autenticado
       const response = await fetch(`${config.BACKEND_URL}/api/documentos/politicas/paciente/${ci}?tenantId=${clinica.id}`, {
         method: 'GET',
         credentials: 'include',
