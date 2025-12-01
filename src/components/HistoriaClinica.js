@@ -293,7 +293,7 @@ const HistoriaClinica = () => {
                   marginBottom: '0',
                   fontWeight: '400'
                 }}>
-                  Bienvenido, <strong style={{color: '#ffffff'}}>{user.nombre || 'Usuario'}</strong>
+                  Bienvenido, aquí se muestran todos tus documentos clínicos
                 </p>
               </div>
             </div>
