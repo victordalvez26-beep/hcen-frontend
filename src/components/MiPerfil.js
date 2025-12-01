@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import config from '../config';
 import GenericPopup from './GenericPopup';
+import ConfigNotificaciones from './ConfigNotificaciones';
 
 // Función auxiliar para parsear fechas que pueden venir con formato [UTC] al final
 const parseFecha = (fechaString) => {
@@ -54,6 +55,7 @@ const MiPerfil = () => {
   const [especialidadesSeleccionadas, setEspecialidadesSeleccionadas] = useState([]); // Lista de especialidades seleccionadas
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [confirmPopup, setConfirmPopup] = useState({ show: false, message: '', onConfirm: null, title: '' });
+  const [showNotificacionesModal, setShowNotificacionesModal] = useState(false);
   
   // Lista de especialidades disponibles (mismas para todas las clínicas)
   const especialidadesDisponibles = [
@@ -1111,23 +1113,43 @@ const MiPerfil = () => {
                   <i className="fa fa-user-circle" style={{marginRight: '10px', color: '#3b82f6'}}></i>
                   Información del Usuario
                 </h4>
-                <button
-                  onClick={handleEditClick}
-                  className="btn btn-primary"
-                  style={{
-                    backgroundColor: '#3b82f6',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    fontWeight: '600',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}
-                >
-                  <i className="fa fa-edit"></i>
-                  Editar Perfil
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={handleEditClick}
+                    className="btn btn-primary"
+                    style={{
+                      backgroundColor: '#3b82f6',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <i className="fa fa-edit"></i>
+                    Editar Perfil
+                  </button>
+                  <button
+                    onClick={() => setShowNotificacionesModal(true)}
+                    className="btn btn-secondary"
+                    style={{
+                      backgroundColor: '#6b7280',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      color: '#ffffff'
+                    }}
+                  >
+                    <i className="fa fa-bell"></i>
+                    Notificaciones
+                  </button>
+                </div>
               </div>
               
               <div className="row">
@@ -2587,6 +2609,12 @@ const MiPerfil = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Configuración de Notificaciones */}
+      <ConfigNotificaciones 
+        show={showNotificacionesModal} 
+        onClose={() => setShowNotificacionesModal(false)} 
+      />
     </>
   );
 };
