@@ -170,9 +170,6 @@ const HistoriaClinica = () => {
     }
   };
 
-  const handleLogout = () => {
-    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
-  };
 
   const handleFiltroChange = (campo, valor) => {
     setFiltros(prev => ({
