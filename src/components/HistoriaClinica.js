@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
 import GenericPopup from './GenericPopup';
@@ -184,16 +184,6 @@ const HistoriaClinica = () => {
     if (filtros.profesional !== 'todos' && doc.profesional !== filtros.profesional) return false;
     return true;
   });
-
-  const resumen = useMemo(() => {
-    const total = documentosClinicos.length;
-    const restringidos = documentosClinicos.filter((doc) => !doc.accesoPermitido).length;
-    return {
-      total,
-      conAcceso: total - restringidos,
-      restringidos
-    };
-  }, [documentosClinicos]);
 
   const categorias = [...new Set(documentosClinicos.map(doc => doc.categoria))];
   const instituciones = [...new Set(documentosClinicos.map(doc => doc.institucion))];
@@ -404,34 +394,6 @@ const HistoriaClinica = () => {
                   </>
                 )}
               </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Tarjetas de Resumen */}
-        <div className="row g-4 mb-4">
-          <div className="col-md-4">
-            <div className="card shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body text-center">
-                <p className="text-muted text-uppercase mb-1">Documentos Totales</p>
-                <h2 style={{ fontWeight: '700' }}>{resumen.total}</h2>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-4">
-            <div className="card shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body text-center">
-                <p className="text-muted text-uppercase mb-1">Accesos Permitidos</p>
-                <h2 style={{ fontWeight: '700', color: '#16a34a' }}>{resumen.conAcceso}</h2>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-4">
-            <div className="card shadow-sm h-100" style={{ borderRadius: '16px' }}>
-              <div className="card-body text-center">
-                <p className="text-muted text-uppercase mb-1">Restringidos</p>
-                <h2 style={{ fontWeight: '700', color: '#dc2626' }}>{resumen.restringidos}</h2>
-              </div>
             </div>
           </div>
         </div>
