@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'r
 import Home from './components/Home';
 import HistoriaClinica from './components/HistoriaClinica';
 import DetalleDocumento from './components/DetalleDocumento';
-import CompleteProfile from './components/CompleteProfile';
+// import CompleteProfile from './components/CompleteProfile'; // Eliminado
 import GestionClinicas from './components/GestionClinicas';
 import GestionUsuarios from './components/GestionUsuarios';
 import GestionPrestadores from './components/GestionPrestadores';
@@ -201,18 +201,12 @@ function AppContent() {
     if (!user) {
       return <Navigate to="/" replace />;
     }
-    if (user && !user.profileCompleted && location.pathname !== '/complete-profile') {
-      return <Navigate to="/complete-profile" replace />;
-    }
     return children;
   };
 
   const AdminRoute = ({ children }) => {
     if (!user) {
       return <Navigate to="/" replace />;
-    }
-    if (user && !user.profileCompleted) {
-      return <Navigate to="/complete-profile" replace />;
     }
     if (user && user.rol !== 'AD') {
       return (
@@ -260,9 +254,6 @@ function AppContent() {
       <div style={{ paddingTop: location.pathname !== '/complete-profile' ? '70px' : '0' }} className="main-content-wrapper">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/complete-profile" element={
-            user && !user.profileCompleted ? <CompleteProfile /> : <Navigate to="/" replace />
-          } />
           <Route path="/registro-prestador" element={<RegistroPrestador />} />
           <Route path="/historia-clinica" element={
             <ProtectedRoute>
