@@ -1235,6 +1235,30 @@ const MiPerfil = () => {
                     marginBottom: '8px',
                     display: 'block'
                   }}>
+                    Fecha de Nacimiento
+                  </label>
+                  <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '8px',
+                    color: '#1f2937',
+                    fontSize: '16px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    {user.fechaNacimiento ? new Date(user.fechaNacimiento).toLocaleDateString('es-UY') : 'No disponible'}
+                  </div>
+                </div>
+
+                <div className="col-md-6 mb-4">
+                  <label style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '8px',
+                    display: 'block'
+                  }}>
                     Teléfono
                   </label>
                   <div style={{
@@ -2458,46 +2482,81 @@ const MiPerfil = () => {
               <form onSubmit={handleEditSubmit}>
                 <div className="modal-body" style={{padding: '30px', maxHeight: '70vh', overflowY: 'auto'}}>
                   <div className="row">
+                    {/* Campos no editables (solo visualización) */}
                     <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Primer Nombre</label>
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                        Primer Nombre <span style={{color: '#9ca3af', fontSize: '12px'}}>(No editable)</span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
                         value={editFormData.primerNombre}
-                        onChange={(e) => setEditFormData({...editFormData, primerNombre: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
+                        disabled
+                        style={{borderRadius: '8px', padding: '12px', backgroundColor: '#f3f4f6', cursor: 'not-allowed'}}
                       />
                     </div>
                     <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Segundo Nombre</label>
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                        Segundo Nombre <span style={{color: '#9ca3af', fontSize: '12px'}}>(No editable)</span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
                         value={editFormData.segundoNombre}
-                        onChange={(e) => setEditFormData({...editFormData, segundoNombre: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
+                        disabled
+                        style={{borderRadius: '8px', padding: '12px', backgroundColor: '#f3f4f6', cursor: 'not-allowed'}}
                       />
                     </div>
                     <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Primer Apellido</label>
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                        Primer Apellido <span style={{color: '#9ca3af', fontSize: '12px'}}>(No editable)</span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
                         value={editFormData.primerApellido}
-                        onChange={(e) => setEditFormData({...editFormData, primerApellido: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
+                        disabled
+                        style={{borderRadius: '8px', padding: '12px', backgroundColor: '#f3f4f6', cursor: 'not-allowed'}}
                       />
                     </div>
                     <div className="col-md-6 mb-4">
-                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Segundo Apellido</label>
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                        Segundo Apellido <span style={{color: '#9ca3af', fontSize: '12px'}}>(No editable)</span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
                         value={editFormData.segundoApellido}
-                        onChange={(e) => setEditFormData({...editFormData, segundoApellido: e.target.value})}
-                        style={{borderRadius: '8px', padding: '12px'}}
+                        disabled
+                        style={{borderRadius: '8px', padding: '12px', backgroundColor: '#f3f4f6', cursor: 'not-allowed'}}
                       />
                     </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                        Documento <span style={{color: '#9ca3af', fontSize: '12px'}}>(No editable)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={user.documento || user.codDocum || ''}
+                        disabled
+                        style={{borderRadius: '8px', padding: '12px', backgroundColor: '#f3f4f6', cursor: 'not-allowed'}}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-4">
+                      <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>
+                        Fecha de Nacimiento <span style={{color: '#9ca3af', fontSize: '12px'}}>(No editable)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={user.fechaNacimiento ? new Date(user.fechaNacimiento).toLocaleDateString('es-UY') : 'No disponible'}
+                        disabled
+                        style={{borderRadius: '8px', padding: '12px', backgroundColor: '#f3f4f6', cursor: 'not-allowed'}}
+                      />
+                    </div>
+
+                    {/* Campos editables */}
                     <div className="col-md-6 mb-4">
                       <label className="form-label" style={{fontWeight: '600', color: '#374151'}}>Email</label>
                       <input

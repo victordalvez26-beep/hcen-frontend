@@ -1,12 +1,21 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import config from '../config';
 import GenericPopup from './GenericPopup';
 
-const Home = () => {
-  const [user, setUser] = useState(null);
+const Home = ({ user: userProp }) => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(userProp || null);
   const [loading, setLoading] = useState(true);
   const [isMinor, setIsMinor] = useState(false);
   const [popup, setPopup] = useState({ show: false, message: '', type: 'error' });
+  
+  // Sincronizar con el user de App.js
+  useEffect(() => {
+    if (userProp !== undefined) {
+      setUser(userProp);
+    }
+  }, [userProp]);
 
   const checkSession = useCallback(async () => {
     try {
@@ -37,23 +46,47 @@ const Home = () => {
     // Verificar si hay token temporal en la URL para intercambiar
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
+    const logoutStatus = urlParams.get('logout');
     const tempToken = urlParams.get('token');
     const error = urlParams.get('error');
+    const finalLogout = urlParams.get('final_logout');
     
     console.log('🔍 [DEBUG] Home.js useEffect ejecutado');
     console.log('🔍 [DEBUG] URL completa:', window.location.href);
     console.log('🔍 [DEBUG] loginStatus:', loginStatus);
+    console.log('🔍 [DEBUG] logoutStatus:', logoutStatus);
     console.log('🔍 [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
     console.log('🔍 [DEBUG] tempToken valor:', tempToken);
+    console.log('🔍 [DEBUG] finalLogout:', finalLogout);
+    
+    // Si venimos del flujo de redirecting, hacer última llamada al iframe
+    if (finalLogout === 'true') {
+      console.log('🎯 Última llamada de logout desde Home...');
+      const finalIframe = document.createElement('iframe');
+      finalIframe.style.display = 'none';
+      finalIframe.style.width = '0';
+      finalIframe.style.height = '0';
+      finalIframe.style.border = 'none';
+      finalIframe.src = `${config.BACKEND_URL}/api/auth/logout_hcen`;
+      document.body.appendChild(finalIframe);
+      
+      // Eliminar el iframe después de 5 segundos y limpiar URL
+      setTimeout(() => {
+        if (finalIframe && finalIframe.parentNode) {
+          finalIframe.remove();
+          console.log('🎯 Iframe final eliminado');
+        }
+        // Limpiar parámetro de la URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 5000);
+    }
     
     // Verificar si ya se procesó el token (evitar llamadas duplicadas)
     const tokenProcessed = sessionStorage.getItem('token_exchange_processed');
     
     if (error === 'menor_de_edad') {
-      console.warn('⛔ Usuario identificado como menor de edad');
-      setIsMinor(true);
-      setLoading(false);
-      window.history.replaceState({}, document.title, window.location.pathname);
+      console.warn('⛔ Usuario identificado como menor de edad - Redirigiendo a /menor-de-edad');
+      navigate('/menor-de-edad');
       return;
     }
 
