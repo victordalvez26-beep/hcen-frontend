@@ -8,8 +8,8 @@ function MenorDeEdad() {
 
   useEffect(() => {
     // Hacer logout silencioso de GubUy en iframe invisible
-    // Crear 3 iframes con 4 segundos de diferencia para asegurar que al menos uno funcione
-    console.log('Iniciando logout silencioso para menor de edad (3 intentos)...');
+    // Crear 5 iframes con 3 segundos de diferencia para asegurar que al menos uno funcione
+    console.log('Iniciando logout silencioso para menor de edad (5 intentos)...');
     
     const iframes = [];
     
@@ -24,7 +24,7 @@ function MenorDeEdad() {
     iframes.push(iframe1);
     console.log('Iframe 1 de logout creado');
     
-    // Iframe 2: Después de 4 segundos
+    // Iframe 2: Después de 3 segundos
     const timer1 = setTimeout(() => {
       const iframe2 = document.createElement('iframe');
       iframe2.style.display = 'none';
@@ -35,9 +35,9 @@ function MenorDeEdad() {
       document.body.appendChild(iframe2);
       iframes.push(iframe2);
       console.log('Iframe 2 de logout creado');
-    }, 4000);
+    }, 3000);
     
-    // Iframe 3: Después de 8 segundos
+    // Iframe 3: Después de 6 segundos
     const timer2 = setTimeout(() => {
       const iframe3 = document.createElement('iframe');
       iframe3.style.display = 'none';
@@ -48,7 +48,33 @@ function MenorDeEdad() {
       document.body.appendChild(iframe3);
       iframes.push(iframe3);
       console.log('Iframe 3 de logout creado');
-    }, 8000);
+    }, 6000);
+    
+    // Iframe 4: Después de 9 segundos
+    const timer3 = setTimeout(() => {
+      const iframe4 = document.createElement('iframe');
+      iframe4.style.display = 'none';
+      iframe4.style.width = '0';
+      iframe4.style.height = '0';
+      iframe4.style.border = 'none';
+      iframe4.src = `${config.BACKEND_URL}/api/auth/logout_hcen`;
+      document.body.appendChild(iframe4);
+      iframes.push(iframe4);
+      console.log('Iframe 4 de logout creado');
+    }, 9000);
+    
+    // Iframe 5: Después de 12 segundos
+    const timer4 = setTimeout(() => {
+      const iframe5 = document.createElement('iframe');
+      iframe5.style.display = 'none';
+      iframe5.style.width = '0';
+      iframe5.style.height = '0';
+      iframe5.style.border = 'none';
+      iframe5.src = `${config.BACKEND_URL}/api/auth/logout_hcen`;
+      document.body.appendChild(iframe5);
+      iframes.push(iframe5);
+      console.log('Iframe 5 de logout creado');
+    }, 12000);
     
     // Contador regresivo
     const contadorInterval = setInterval(() => {
@@ -80,6 +106,8 @@ function MenorDeEdad() {
       clearTimeout(redirectTimer);
       clearTimeout(timer1);
       clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
       clearInterval(contadorInterval);
       iframes.forEach(iframe => {
         if (iframe && iframe.parentNode) {
