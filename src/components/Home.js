@@ -1,12 +1,21 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import config from '../config';
 import GenericPopup from './GenericPopup';
 
-const Home = () => {
-  const [user, setUser] = useState(null);
+const Home = ({ user: userProp }) => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(userProp || null);
   const [loading, setLoading] = useState(true);
   const [isMinor, setIsMinor] = useState(false);
   const [popup, setPopup] = useState({ show: false, message: '', type: 'error' });
+  
+  // Sincronizar con el user de App.js
+  useEffect(() => {
+    if (userProp !== undefined) {
+      setUser(userProp);
+    }
+  }, [userProp]);
 
   const checkSession = useCallback(async () => {
     try {
@@ -37,12 +46,14 @@ const Home = () => {
     // Verificar si hay token temporal en la URL para intercambiar
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
+    const logoutStatus = urlParams.get('logout');
     const tempToken = urlParams.get('token');
     const error = urlParams.get('error');
     
     console.log('🔍 [DEBUG] Home.js useEffect ejecutado');
     console.log('🔍 [DEBUG] URL completa:', window.location.href);
     console.log('🔍 [DEBUG] loginStatus:', loginStatus);
+    console.log('🔍 [DEBUG] logoutStatus:', logoutStatus);
     console.log('🔍 [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
     console.log('🔍 [DEBUG] tempToken valor:', tempToken);
     
@@ -50,10 +61,8 @@ const Home = () => {
     const tokenProcessed = sessionStorage.getItem('token_exchange_processed');
     
     if (error === 'menor_de_edad') {
-      console.warn('⛔ Usuario identificado como menor de edad');
-      setIsMinor(true);
-      setLoading(false);
-      window.history.replaceState({}, document.title, window.location.pathname);
+      console.warn('⛔ Usuario identificado como menor de edad - Redirigiendo a /menor-de-edad');
+      navigate('/menor-de-edad');
       return;
     }
 

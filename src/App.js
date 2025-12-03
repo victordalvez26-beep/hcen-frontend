@@ -13,6 +13,7 @@ import MisClinicas from './components/MisClinicas';
 import ReportesAdmin from './components/ReportesAdmin';
 import RegistroPrestador from './components/RegistroPrestador';
 import Contacto from './components/Contacto';
+import MenorDeEdad from './components/MenorDeEdad';
 import Header from './components/Header';
 import config from './config';
 import './App.css';
@@ -44,6 +45,20 @@ function AppContent() {
   };
 
   useEffect(() => {
+    // Verificar si hay error de menor de edad o logout en la URL
+    const params = new URLSearchParams(window.location.search);
+    
+    if (params.get('error') === 'menor_de_edad') {
+      console.log('Error de menor de edad detectado en URL');
+      setLoading(false);
+      setUser(null);
+      // Limpiar cualquier estado de sesión para evitar conflictos
+      sessionStorage.clear();
+      // No hacer checkSession, dejar que la ruta /menor-de-edad se encargue
+      return;
+    }
+    
+    
     checkSession();
   }, []);
   
@@ -153,6 +168,12 @@ function AppContent() {
             setUser(sessionData); // Fallback
         }
       } else {
+        // Verificar si es error de menor de edad
+        if (sessionData.error === 'menor_de_edad') {
+          console.log('Menor de edad detectado en checkSession');
+          window.location.href = '/?error=menor_de_edad';
+          return;
+        }
         setUser(null);
       }
     } catch (error) {
@@ -243,7 +264,7 @@ function AppContent() {
 
   return (
     <div className="App">
-      {location.pathname !== '/complete-profile' && (
+      {location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad' && (
         <Header 
           user={user} 
           activePage={getActivePage()} 
@@ -251,9 +272,10 @@ function AppContent() {
           setViewRole={setViewRoleWithStorage}
         />
       )}
-      <div style={{ paddingTop: location.pathname !== '/complete-profile' ? '70px' : '0' }} className="main-content-wrapper">
+      <div style={{ paddingTop: (location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad') ? '70px' : '0' }} className="main-content-wrapper">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Home user={user} />} />
+          <Route path="/menor-de-edad" element={<MenorDeEdad />} />
           <Route path="/registro-prestador" element={<RegistroPrestador />} />
           <Route path="/historia-clinica" element={
             <ProtectedRoute>

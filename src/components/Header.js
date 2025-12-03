@@ -213,13 +213,17 @@ const Header = ({ user, activePage = '', viewRole = null, setViewRole = null }) 
 
               {/* Botón Cerrar Sesión o Iniciar Sesión */}
               {user ? (
-                <a 
-                  href={`${config.BACKEND_URL}/api/auth/logout_hcen`}
-                  onClick={() => isMobile && setIsMobileMenuOpen(false)}
+                <button
+                  onClick={() => {
+                    isMobile && setIsMobileMenuOpen(false);
+                    console.log('Redirigiendo a logout...');
+                    // Redirigir a /logout_hcen que maneja todo
+                    window.location.href = `${config.BACKEND_URL}/api/auth/logout_hcen`;
+                  }}
                   className="header-logout-btn"
                 >
                   Cerrar Sesión
-                </a>
+                </button>
               ) : (
                 <button
                   type="button"
