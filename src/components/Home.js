@@ -49,6 +49,7 @@ const Home = ({ user: userProp }) => {
     const logoutStatus = urlParams.get('logout');
     const tempToken = urlParams.get('token');
     const error = urlParams.get('error');
+    const finalLogout = urlParams.get('final_logout');
     
     console.log('🔍 [DEBUG] Home.js useEffect ejecutado');
     console.log('🔍 [DEBUG] URL completa:', window.location.href);
@@ -56,6 +57,29 @@ const Home = ({ user: userProp }) => {
     console.log('🔍 [DEBUG] logoutStatus:', logoutStatus);
     console.log('🔍 [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
     console.log('🔍 [DEBUG] tempToken valor:', tempToken);
+    console.log('🔍 [DEBUG] finalLogout:', finalLogout);
+    
+    // Si venimos del flujo de redirecting, hacer última llamada al iframe
+    if (finalLogout === 'true') {
+      console.log('🎯 Última llamada de logout desde Home...');
+      const finalIframe = document.createElement('iframe');
+      finalIframe.style.display = 'none';
+      finalIframe.style.width = '0';
+      finalIframe.style.height = '0';
+      finalIframe.style.border = 'none';
+      finalIframe.src = `${config.BACKEND_URL}/api/auth/logout_hcen`;
+      document.body.appendChild(finalIframe);
+      
+      // Eliminar el iframe después de 5 segundos y limpiar URL
+      setTimeout(() => {
+        if (finalIframe && finalIframe.parentNode) {
+          finalIframe.remove();
+          console.log('🎯 Iframe final eliminado');
+        }
+        // Limpiar parámetro de la URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 5000);
+    }
     
     // Verificar si ya se procesó el token (evitar llamadas duplicadas)
     const tokenProcessed = sessionStorage.getItem('token_exchange_processed');

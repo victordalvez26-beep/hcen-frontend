@@ -14,6 +14,7 @@ import ReportesAdmin from './components/ReportesAdmin';
 import RegistroPrestador from './components/RegistroPrestador';
 import Contacto from './components/Contacto';
 import MenorDeEdad from './components/MenorDeEdad';
+import Redirecting from './components/Redirecting';
 import Header from './components/Header';
 import config from './config';
 import './App.css';
@@ -264,7 +265,7 @@ function AppContent() {
 
   return (
     <div className="App">
-      {location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad' && (
+      {location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad' && location.pathname !== '/redirecting' && (
         <Header 
           user={user} 
           activePage={getActivePage()} 
@@ -272,10 +273,11 @@ function AppContent() {
           setViewRole={setViewRoleWithStorage}
         />
       )}
-      <div style={{ paddingTop: (location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad') ? '70px' : '0' }} className="main-content-wrapper">
+      <div style={{ paddingTop: (location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad' && location.pathname !== '/redirecting') ? '70px' : '0' }} className="main-content-wrapper">
         <Routes>
           <Route path="/" element={<Home user={user} />} />
           <Route path="/menor-de-edad" element={<MenorDeEdad />} />
+          <Route path="/redirecting" element={<Redirecting />} />
           <Route path="/registro-prestador" element={<RegistroPrestador />} />
           <Route path="/historia-clinica" element={
             <ProtectedRoute>
