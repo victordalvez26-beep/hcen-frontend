@@ -51,13 +51,13 @@ const Home = ({ user: userProp }) => {
     const error = urlParams.get('error');
     const finalLogout = urlParams.get('final_logout');
     
-    console.log('🔍 [DEBUG] Home.js useEffect ejecutado');
-    console.log('🔍 [DEBUG] URL completa:', window.location.href);
-    console.log('🔍 [DEBUG] loginStatus:', loginStatus);
-    console.log('🔍 [DEBUG] logoutStatus:', logoutStatus);
-    console.log('🔍 [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
-    console.log('🔍 [DEBUG] tempToken valor:', tempToken);
-    console.log('🔍 [DEBUG] finalLogout:', finalLogout);
+    console.log(' [DEBUG] Home.js useEffect ejecutado');
+    console.log(' [DEBUG] URL completa:', window.location.href);
+    console.log(' [DEBUG] loginStatus:', loginStatus);
+    console.log(' [DEBUG] logoutStatus:', logoutStatus);
+    console.log(' [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
+    console.log(' [DEBUG] tempToken valor:', tempToken);
+    console.log(' [DEBUG] finalLogout:', finalLogout);
     
     // Si venimos del flujo de redirecting, hacer última llamada al iframe
     if (finalLogout === 'true') {
@@ -91,11 +91,11 @@ const Home = ({ user: userProp }) => {
     }
 
     if (loginStatus === 'success' && tempToken && !tokenProcessed) {
-      console.log('✅ Login exitoso! Intercambiando token temporal...');
+      console.log('Login exitoso! Intercambiando token temporal...');
       sessionStorage.setItem('token_exchange_processed', 'true');
       exchangeTokenAndSetCookie(tempToken);
     } else if (loginStatus === 'success' && tempToken && tokenProcessed) {
-      console.log('⚠️ Token ya fue procesado, limpiando URL...');
+      console.log('Token ya fue procesado, limpiando URL...');
       window.history.replaceState({}, document.title, window.location.pathname);
       checkSession();
     } else {
@@ -106,7 +106,7 @@ const Home = ({ user: userProp }) => {
   const exchangeTokenAndSetCookie = async (tempToken) => {
     // Validar que el token no esté vacío
     if (!tempToken || tempToken.trim() === '') {
-      console.error('❌ Token temporal vacío o inválido');
+      console.error('Token temporal vacío o inválido');
       sessionStorage.removeItem('token_exchange_processed');
       window.history.replaceState({}, document.title, window.location.pathname);
       checkSession();
@@ -133,8 +133,8 @@ const Home = ({ user: userProp }) => {
         }
         // El exchange es opcional - la cookie ya está seteada por el callback
         // Si falla, simplemente verificar sesión (la cookie ya está)
-        console.warn('⚠️ Exchange de token falló, pero la cookie JWT ya está seteada por el callback');
-        console.warn('⚠️ Continuando con verificación de sesión...');
+        console.warn('Exchange de token falló, pero la cookie JWT ya está seteada por el callback');
+        console.warn('Continuando con verificación de sesión...');
         window.history.replaceState({}, document.title, window.location.pathname);
         checkSession();
         return; // No lanzar error, solo continuar
@@ -144,7 +144,7 @@ const Home = ({ user: userProp }) => {
       // El backend ya setea la cookie cross-site, no necesitamos hacerlo aquí
       // El JWT se puede recibir pero no se usa para setear cookie propia
       
-      console.log('✅ Token recibido del backend - Cookie establecida por el backend (cross-site)');
+      console.log('Token recibido del backend - Cookie establecida por el backend (cross-site)');
       
       // Limpiar URL inmediatamente (remover token de la barra de direcciones)
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -156,7 +156,7 @@ const Home = ({ user: userProp }) => {
       checkSession();
       
     } catch (error) {
-      console.error('❌ Error intercambiando token:', error);
+      console.error('Error intercambiando token:', error);
       // No mostrar popup si el token ya fue procesado (evitar spam)
       if (!sessionStorage.getItem('token_exchange_processed')) {
         setPopup({ show: true, message: 'Error al completar el login: ' + error.message, type: 'error' });
