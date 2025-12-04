@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 
-const GestionUsuarios = () => {
+const GestionUsuarios = ({ currentUser, onSessionUpdate }) => {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -8,6 +9,9 @@ const GestionUsuarios = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [userDetails, setUserDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -17,7 +21,7 @@ const GestionUsuarios = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/users/all', {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/all`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -60,7 +64,7 @@ const GestionUsuarios = () => {
     if (!selectedUser || !newRole) return;
 
     try {
-      const response = await fetch('http://localhost:8080/api/users/role', {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/role`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -86,6 +90,15 @@ const GestionUsuarios = () => {
               }
             : usuario
         ));
+
+        // Si el usuario modificado es el actual, actualizar la sesión global
+        if (currentUser && selectedUser && currentUser.uid === selectedUser.uid) {
+            if (onSessionUpdate) {
+                // Pequeño delay para asegurar que el backend procesó todo si es asíncrono,
+                // aunque aquí ya recibimos response.ok
+                setTimeout(() => onSessionUpdate(), 100);
+            }
+        }
       } else {
         const errorData = await response.json();
         setMessage('Error actualizando rol: ' + (errorData.error || 'Error desconocido'));
@@ -101,6 +114,42 @@ const GestionUsuarios = () => {
 
     // Limpiar mensaje después de 5 segundos
     setTimeout(() => setMessage(''), 5000);
+  };
+
+  const handleViewDetails = async (uid) => {
+    setLoadingDetails(true);
+    setShowDetailModal(true);
+    setUserDetails(null);
+    
+    try {
+      const response = await fetch(`${config.BACKEND_URL}/api/users/${uid}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserDetails(data);
+      } else {
+        // Intentar parsear error
+        try {
+            const errorData = await response.json();
+            setMessage('Error: ' + (errorData.error || 'No se pudo cargar detalles'));
+        } catch (e) {
+            setMessage('Error cargando detalles del usuario');
+        }
+        setShowDetailModal(false);
+      }
+    } catch (error) {
+      console.error('Error cargando detalles:', error);
+      setMessage('Error de conexión al cargar detalles');
+      setShowDetailModal(false);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const getRoleBadgeColor = (rol) => {
@@ -199,7 +248,9 @@ const GestionUsuarios = () => {
           }}>
             <i className="fa fa-check-circle" style={{marginRight: '8px'}}></i>
             {message}
-            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
+            <button type="button" className="btn-close" onClick={() => setMessage('')}>
+              <i className="fa fa-times"></i>
+            </button>
           </div>
         )}
 
@@ -339,31 +390,56 @@ const GestionUsuarios = () => {
                             </span>
                           </td>
                           <td style={{padding: '15px 20px', borderTopRightRadius: '8px', borderBottomRightRadius: '8px'}}>
-                            <button
-                              onClick={() => handleRoleChange(usuario)}
-                              style={{
-                                backgroundColor: '#3b82f6',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                padding: '8px 16px',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = '#2563eb';
-                                e.target.style.transform = 'translateY(-1px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = '#3b82f6';
-                                e.target.style.transform = 'translateY(0)';
-                              }}
-                            >
-                              <i className="fa fa-edit" style={{marginRight: '5px'}}></i>
-                              Cambiar Rol
-                            </button>
+                            <div style={{display: 'flex', alignItems: 'center'}}>
+                                <button
+                                  onClick={() => handleViewDetails(usuario.uid)}
+                                  className="btn btn-info btn-sm"
+                                  style={{
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '8px 12px',
+                                    fontSize: '14px',
+                                    marginRight: '8px',
+                                    cursor: 'pointer',
+                                    backgroundColor: '#0ea5e9',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '36px',
+                                    height: '36px'
+                                  }}
+                                  title="Ver Detalles Completos (INUS)"
+                                >
+                                  <i className="fa fa-eye"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleRoleChange(usuario)}
+                                  style={{
+                                    backgroundColor: '#3b82f6',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '8px 16px',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'pointer',
+                                    height: '36px'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = '#2563eb';
+                                    e.target.style.transform = 'translateY(-1px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = '#3b82f6';
+                                    e.target.style.transform = 'translateY(0)';
+                                  }}
+                                >
+                                  <i className="fa fa-edit" style={{marginRight: '5px'}}></i>
+                                  Cambiar Rol
+                                </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -420,7 +496,9 @@ const GestionUsuarios = () => {
                   className="btn-close"
                   onClick={() => setShowModal(false)}
                   style={{fontSize: '20px'}}
-                ></button>
+                >
+                  <i className="fa fa-times"></i>
+                </button>
               </div>
               <div className="modal-body" style={{padding: '30px'}}>
                 <div className="mb-4">
@@ -520,6 +598,88 @@ const GestionUsuarios = () => {
                 >
                   <i className="fa fa-save" style={{marginRight: '5px'}}></i>
                   Confirmar Cambio
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalles (INUS) */}
+      {showDetailModal && (
+        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content" style={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+              <div className="modal-header" style={{ borderBottom: '1px solid #e5e7eb', padding: '20px 30px', backgroundColor: '#f8fafc', borderTopLeftRadius: '15px', borderTopRightRadius: '15px' }}>
+                <h5 className="modal-title" style={{ color: '#1f2937', fontWeight: '600', fontSize: '20px' }}>
+                  <i className="fa fa-id-card" style={{ marginRight: '10px', color: '#0ea5e9' }}></i>
+                  Detalles del Usuario (INUS)
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setShowDetailModal(false)}></button>
+              </div>
+              <div className="modal-body" style={{ padding: '30px' }}>
+                {loadingDetails ? (
+                  <div className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status" style={{width: '3rem', height: '3rem'}}></div>
+                    <p className="mt-3 text-muted">Consultando información maestra en INUS...</p>
+                  </div>
+                ) : userDetails ? (
+                  <div className="row">
+                    <div className="col-md-6 mb-4">
+                        <label style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '5px', display: 'block'}}>Nombre Completo</label>
+                        <div style={{padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#1f2937', fontWeight: '500'}}>
+                            {[userDetails.primerNombre, userDetails.segundoNombre, userDetails.primerApellido, userDetails.segundoApellido].filter(Boolean).join(' ') || 'N/A'}
+                        </div>
+                    </div>
+                    <div className="col-md-6 mb-4">
+                        <label style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '5px', display: 'block'}}>Documento</label>
+                        <div style={{padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#1f2937', fontFamily: 'monospace'}}>
+                            {userDetails.tipDocum} {userDetails.codDocum}
+                        </div>
+                    </div>
+                    <div className="col-md-6 mb-4">
+                        <label style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '5px', display: 'block'}}>Email</label>
+                        <div style={{padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#1f2937'}}>
+                            {userDetails.email || 'N/A'}
+                        </div>
+                    </div>
+                    <div className="col-md-6 mb-4">
+                        <label style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '5px', display: 'block'}}>Teléfono</label>
+                        <div style={{padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#1f2937'}}>
+                            {userDetails.telefono || 'N/A'}
+                        </div>
+                    </div>
+                    <div className="col-md-12 mb-4">
+                        <label style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '5px', display: 'block'}}>Dirección</label>
+                        <div style={{padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#1f2937'}}>
+                            {userDetails.direccion ? `${userDetails.direccion}, ${userDetails.localidad || ''}, ${userDetails.departamento || ''}` : 'N/A'}
+                        </div>
+                    </div>
+                    <div className="col-md-6 mb-4">
+                        <label style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '5px', display: 'block'}}>Nacionalidad</label>
+                        <div style={{padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#1f2937'}}>
+                            {userDetails.nacionalidad || 'N/A'}
+                        </div>
+                    </div>
+                    <div className="col-md-6 mb-4">
+                        <label style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', marginBottom: '5px', display: 'block'}}>UID del Sistema</label>
+                        <div style={{padding: '10px 15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb', color: '#6b7280', fontFamily: 'monospace', fontSize: '13px'}}>
+                            {userDetails.uid}
+                        </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="alert alert-warning">No se encontró información detallada para este usuario.</div>
+                )}
+              </div>
+              <div className="modal-footer" style={{ borderTop: '1px solid #e5e7eb', padding: '20px 30px', backgroundColor: '#f8fafc', borderBottomLeftRadius: '15px', borderBottomRightRadius: '15px' }}>
+                <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => setShowDetailModal(false)}
+                    style={{padding: '10px 20px', borderRadius: '8px', fontWeight: '500'}}
+                >
+                    Cerrar
                 </button>
               </div>
             </div>

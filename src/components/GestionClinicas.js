@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import config from '../config';
 
 const GestionClinicas = () => {
   const [nodos, setNodos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     nombre: '',
-    contacto: '', // Email de contacto del administrador
+    contacto: '' // Email de contacto del administrador
     // Los demás datos (RUT, dirección, etc.) los ingresa la clínica al activarse
-    estado: 'PENDIENTE_ACTIVACION'
+    // El estado se establece automáticamente en el backend como PENDIENTE
   });
 
   const [editingRUT, setEditingRUT] = useState(null);
@@ -16,6 +17,8 @@ const GestionClinicas = () => {
   const [messageType, setMessageType] = useState('');
   const [showActivationModal, setShowActivationModal] = useState(false);
   const [activationData, setActivationData] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmData, setConfirmData] = useState(null);
 
   const showMessage = useCallback((msg, type) => {
     setMessage(msg);
@@ -52,7 +55,7 @@ const GestionClinicas = () => {
   const loadNodos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/nodos', {
+      const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -60,15 +63,45 @@ const GestionClinicas = () => {
         }
       });
 
+      // Leer el cuerpo de la respuesta una sola vez
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch (e) {
+        throw new Error(`Error leyendo respuesta: ${e.message}`);
+      }
+
       if (response.ok) {
-        const data = await response.json();
-        setNodos(data);
+        if (isJson && responseBody) {
+          try {
+            const data = JSON.parse(responseBody);
+            setNodos(data);
+          } catch (e) {
+            throw new Error(`Error parseando JSON: ${e.message}`);
+          }
+        } else {
+          throw new Error('Respuesta no es JSON válido');
+        }
       } else {
-        showMessage('Error cargando clínicas', 'error');
+        let errorMessage = `Error HTTP ${response.status}`;
+        if (isJson && responseBody) {
+          try {
+            const errorJson = JSON.parse(responseBody);
+            errorMessage += ': ' + (errorJson.error || errorJson.message || JSON.stringify(errorJson));
+          } catch (e) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+        } else if (responseBody) {
+          errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+        }
+        showMessage(errorMessage, 'error');
       }
     } catch (error) {
       console.error('Error cargando nodos:', error);
-      showMessage('Error de conexión al cargar nodos', 'error');
+      showMessage(`Error de conexión: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -91,7 +124,8 @@ const GestionClinicas = () => {
     
     try {
       if (editingRUT) {
-        const response = await fetch(`http://localhost:8080/api/nodos/${editingRUT}`, {
+        
+        const response = await fetch(`${config.BACKEND_URL}/api/nodos/${editingRUT}`, {
           method: 'PUT',
           credentials: 'include',
           headers: {
@@ -100,16 +134,39 @@ const GestionClinicas = () => {
           body: JSON.stringify(formData)
         });
 
+        // Leer el cuerpo de la respuesta una sola vez
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        let responseBody = '';
+        try {
+          responseBody = await response.text();
+        } catch (e) {
+          showMessage(`Error leyendo respuesta: ${e.message}`, 'error');
+          return;
+        }
+
         if (response.ok) {
           showMessage('Nodo periférico actualizado exitosamente', 'success');
           loadNodos();
         } else {
-          const errorText = await response.text();
-          showMessage('Error actualizando nodo: ' + errorText, 'error');
+          let errorMessage = `Error HTTP ${response.status}`;
+          if (isJson && responseBody) {
+            try {
+              const errorJson = JSON.parse(responseBody);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+            } catch (e) {
+              console.error('Error parseando JSON:', e);
+              errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+            }
+          } else if (responseBody) {
+            errorMessage += ': ' + (responseBody.length > 200 ? responseBody.substring(0, 200) + '...' : responseBody);
+          }
+          showMessage('Error actualizando nodo: ' + errorMessage, 'error');
           return;
         }
       } else {
-        const response = await fetch('http://localhost:8080/api/nodos', {
+        const response = await fetch(`${config.BACKEND_URL}/api/nodos`, {
           method: 'POST',
           credentials: 'include',
           headers: {
@@ -117,12 +174,12 @@ const GestionClinicas = () => {
           },
           body: JSON.stringify(formData)
         });
-
+        
         if (response.ok) {
           const createdNodo = await response.json();
           showActivationDetails(createdNodo, formData);
           showMessage(
-            `✅ Invitación enviada a ${formData.contacto}. ` +
+            `Invitación enviada a ${formData.contacto}. ` +
             `El administrador recibirá un email para completar el registro de la clínica.`,
             'success'
           );
@@ -150,6 +207,11 @@ const GestionClinicas = () => {
   };
 
   const handleEdit = (nodo) => {
+    if (!nodo) {
+      showMessage('Error: Nodo no válido', 'error');
+      return;
+    }
+
     setFormData({
       nombre: nodo.nombre || '',
       RUT: nodo.rut || '',
@@ -160,41 +222,104 @@ const GestionClinicas = () => {
       url: nodo.url || '',
       nodoPerifericoUrlBase: nodo.nodoPerifericoUrlBase || '',
       nodoPerifericoUsuario: nodo.nodoPerifericoUsuario || '',
-      nodoPerifericoPassword: nodo.nodoPerifericoPassword || '',
-      estado: nodo.estado || 'ACTIVO'
+      nodoPerifericoPassword: nodo.nodoPerifericoPassword || ''
+      // No enviar estado al editar, el backend lo maneja
     });
-    setEditingRUT(nodo.rut);
+    setEditingRUT(nodo.rut || nodo.id);
     setShowForm(true);
   };
 
-  const handleDelete = async (rut) => {
-    if (!window.confirm('¿Está seguro de que desea eliminar este nodo periférico?')) {
+  const handleDelete = (nodo) => {
+    if (!nodo) {
+      showMessage('Error: Nodo no válido', 'error');
       return;
     }
 
-    try {
-      const response = await fetch(`http://localhost:8080/api/nodos/${rut}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
-      if (response.ok || response.status === 204) {
-        showMessage('Nodo periférico eliminado exitosamente', 'success');
-        loadNodos();
-      } else {
-        showMessage('Error eliminando nodo', 'error');
-      }
-    } catch (error) {
-      console.error('Error eliminando nodo:', error);
-      showMessage('Error de conexión al eliminar', 'error');
+    const identifier = nodo.rut || nodo.id;
+    if (!identifier) {
+      showMessage('Error: No se puede identificar el nodo a inhabilitar', 'error');
+      return;
     }
+
+    setConfirmData({
+      title: 'Inhabilitar Clínica',
+      message: '¿Está seguro de que desea inhabilitar esta clínica? La clínica quedará inactiva y no se podrá acceder al tenant.',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`${config.BACKEND_URL}/api/nodos/${identifier}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok || response.status === 200 || response.status === 204) {
+            showMessage('Clínica inhabilitada exitosamente', 'success');
+            loadNodos();
+          } else {
+            const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+            showMessage('Error inhabilitando clínica: ' + (errorData.error || 'Error desconocido'), 'error');
+          }
+        } catch (error) {
+          console.error('Error inhabilitando clínica:', error);
+          showMessage('Error de conexión al inhabilitar', 'error');
+        }
+      },
+      confirmText: 'Inhabilitar',
+      confirmColor: '#ef4444'
+    });
+    setShowConfirmModal(true);
+  };
+
+  const handleActivate = (nodo) => {
+    if (!nodo) {
+      showMessage('Error: Nodo no válido', 'error');
+      return;
+    }
+
+    const identifier = nodo.rut || nodo.id;
+    if (!identifier) {
+      showMessage('Error: No se puede identificar el nodo a activar', 'error');
+      return;
+    }
+
+    setConfirmData({
+      title: 'Reactivar Clínica',
+      message: '¿Está seguro de que desea reactivar esta clínica? La clínica volverá a estar activa y se podrá acceder al tenant.',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`${config.BACKEND_URL}/api/nodos/${identifier}/activar`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok || response.status === 200) {
+            showMessage('Clínica reactivada exitosamente', 'success');
+            loadNodos();
+          } else {
+            const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+            showMessage('Error reactivando clínica: ' + (errorData.error || 'Error desconocido'), 'error');
+          }
+        } catch (error) {
+          console.error('Error reactivando clínica:', error);
+          showMessage('Error de conexión al reactivar', 'error');
+        }
+      },
+      confirmText: 'Activar',
+      confirmColor: '#10b981'
+    });
+    setShowConfirmModal(true);
   };
 
   const resetForm = () => {
     setFormData({
       nombre: '',
-      contacto: '',
-      estado: 'PENDIENTE_ACTIVACION'
+      contacto: ''
+      // El estado se establece automáticamente en el backend
     });
     setEditingRUT(null);
     setShowForm(false);
@@ -212,6 +337,7 @@ const GestionClinicas = () => {
       case 'MANTENIMIENTO': return '#f59e0b';
       case 'ERROR_MENSAJERIA': return '#ef4444';
       case 'PENDIENTE': return '#3b82f6';
+      case 'PENDIENTE_ACTIVACION': return '#3b82f6'; // Compatibilidad con datos antiguos
       default: return '#6b7280';
     }
   };
@@ -282,7 +408,9 @@ const GestionClinicas = () => {
             marginBottom: '20px'
           }}>
             {message}
-            <button type="button" className="btn-close" onClick={() => setMessage('')}></button>
+            <button type="button" className="btn-close" onClick={() => setMessage('')}>
+              <i className="fa fa-times"></i>
+            </button>
           </div>
         )}
 
@@ -444,68 +572,89 @@ const GestionClinicas = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {nodos.map(nodo => (
-                          <tr key={nodo.rut} style={{
-                            backgroundColor: '#ffffff',
-                            transition: 'all 0.2s ease'
-                          }}>
-                            <td style={{padding: '15px 20px'}}>
-                              <strong style={{color: '#1f2937'}}>{nodo.nombre}</strong>
-                            </td>
-                            <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace'}}>{nodo.rut}</td>
-                            <td style={{padding: '15px 20px', color: '#374151'}}>
-                              {formatDepartamentoDisplay(nodo.departamento)}
-                              {nodo.localidad && <><br/><small style={{color: '#6b7280'}}>{nodo.localidad}</small></>}
-                            </td>
-                            <td style={{padding: '15px 20px', color: '#374151'}}>{nodo.contacto || '-'}</td>
-                            <td style={{padding: '15px 20px'}}>
-                              <span style={{
-                                padding: '6px 12px',
-                                borderRadius: '5px',
-                                fontWeight: '600',
-                                fontSize: '12px',
-                                backgroundColor: getEstadoBadgeColor(nodo.estado),
-                                color: '#ffffff'
-                              }}>
-                                {nodo.estado}
-                              </span>
-                            </td>
-                            <td style={{padding: '15px 20px'}}>
-                              <div style={{display: 'flex', gap: '8px'}}>
-                                <button
-                                  style={{
-                                    backgroundColor: '#3b82f6',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px 12px',
-                                    fontSize: '13px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                  }}
-                                  onClick={() => handleEdit(nodo)}
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  style={{
-                                    backgroundColor: '#ef4444',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px 12px',
-                                    fontSize: '13px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                  }}
-                                  onClick={() => handleDelete(nodo.rut)}
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {nodos.map((nodo, index) => {
+                          const uniqueKey = nodo.id || nodo.rut || `nodo-${index}`;
+                          return (
+                            <tr key={uniqueKey} style={{
+                              backgroundColor: '#ffffff',
+                              transition: 'all 0.2s ease'
+                            }}>
+                              <td style={{padding: '15px 20px'}}>
+                                <strong style={{color: '#1f2937'}}>{nodo.nombre}</strong>
+                              </td>
+                              <td style={{padding: '15px 20px', color: '#374151', fontFamily: 'monospace'}}>{nodo.RUT || nodo.rut || '-'}</td>
+                              <td style={{padding: '15px 20px', color: '#374151'}}>
+                                {formatDepartamentoDisplay(nodo.departamento)}
+                                {nodo.localidad && <><br/><small style={{color: '#6b7280'}}>{nodo.localidad}</small></>}
+                              </td>
+                              <td style={{padding: '15px 20px', color: '#374151'}}>{nodo.contacto || '-'}</td>
+                              <td style={{padding: '15px 20px'}}>
+                                <span style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '5px',
+                                  fontWeight: '600',
+                                  fontSize: '12px',
+                                  backgroundColor: getEstadoBadgeColor(nodo.estado),
+                                  color: '#ffffff'
+                                }}>
+                                  {nodo.estado || 'N/A'}
+                                </span>
+                              </td>
+                              <td style={{padding: '15px 20px'}}>
+                                <div style={{display: 'flex', gap: '8px'}}>
+                                  <button
+                                    style={{
+                                      backgroundColor: '#3b82f6',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      padding: '6px 12px',
+                                      fontSize: '13px',
+                                      fontWeight: '500',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => handleEdit(nodo)}
+                                  >
+                                    Editar
+                                  </button>
+                                  {nodo.estado === 'INACTIVO' ? (
+                                    <button
+                                      style={{
+                                        backgroundColor: '#10b981',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        padding: '6px 12px',
+                                        fontSize: '13px',
+                                        fontWeight: '500',
+                                        cursor: 'pointer'
+                                      }}
+                                      onClick={() => handleActivate(nodo)}
+                                    >
+                                      Activar
+                                    </button>
+                                  ) : (
+                                    <button
+                                      style={{
+                                        backgroundColor: '#ef4444',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        padding: '6px 12px',
+                                        fontSize: '13px',
+                                        fontWeight: '500',
+                                        cursor: 'pointer'
+                                      }}
+                                      onClick={() => handleDelete(nodo)}
+                                    >
+                                      Inhabilitar
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -541,14 +690,38 @@ const GestionClinicas = () => {
                   fontWeight: '700',
                   fontSize: '24px'
                 }}>
-                  <i className="fa fa-check-circle" style={{marginRight: '12px', color: '#10b981'}}></i>
-                  ¡Clínica Creada Exitosamente!
+                  <i className="fa fa-check-circle" style={{marginRight: '12px', color: '#10b981'}}></i>{/*
+                  */}¡Clínica Creada Exitosamente!
                 </h5>
                 <button
                   type="button"
                   className="btn-close"
                   onClick={() => setShowActivationModal(false)}
-                ></button>
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    fontSize: '20px',
+                    color: '#6b7280',
+                    cursor: 'pointer',
+                    padding: '0',
+                    width: '30px',
+                    height: '30px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#1f2937';
+                    e.target.style.transform = 'scale(1.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = '#6b7280';
+                    e.target.style.transform = 'scale(1)';
+                  }}
+                >
+                  <i className="fa fa-times"></i>
+                </button>
               </div>
               <div className="modal-body" style={{padding: '30px'}}>
                 <div className="alert alert-info" style={{
@@ -564,7 +737,7 @@ const GestionClinicas = () => {
 
                 <div style={{marginBottom: '20px'}}>
                   <h6 style={{color: '#374151', marginBottom: '15px', fontWeight: '600', fontSize: '16px'}}>
-                    📋 Información para el Administrador de la Clínica
+                    Información para el Administrador de la Clínica
                   </h6>
                   
                   <div style={{
@@ -574,7 +747,7 @@ const GestionClinicas = () => {
                     border: '1px solid #e5e7eb',
                     marginBottom: '15px'
                   }}>
-                    <div style={{marginBottom: '15px'}}>
+                    {/*<div style={{marginBottom: '15px'}}>
                       <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
                         👤 Usuario Administrador
                       </label>
@@ -605,11 +778,11 @@ const GestionClinicas = () => {
                           <i className="fa fa-copy"></i>
                         </button>
                       </div>
-                    </div>
+                    </div>*/}
 
                     <div style={{marginBottom: '15px'}}>
                       <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
-                        🔗 URL de Activación (válida por 48 horas)
+                        URL de Activación (válida por 48 horas)
                       </label>
                       <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                         <input
@@ -642,7 +815,7 @@ const GestionClinicas = () => {
                       </div>
                     </div>
 
-                    <div>
+                    {/*<div>
                       <label style={{color: '#6b7280', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px'}}>
                         🏥 URL del Portal (después de activar)
                       </label>
@@ -675,7 +848,7 @@ const GestionClinicas = () => {
                           <i className="fa fa-copy"></i>
                         </button>
                       </div>
-                    </div>
+                    </div>*/}
                   </div>
 
                   <div className="alert alert-warning" style={{
@@ -698,12 +871,13 @@ const GestionClinicas = () => {
                   border: '1px solid #e5e7eb'
                 }}>
                   <h6 style={{color: '#374151', marginBottom: '10px', fontSize: '14px', fontWeight: '600'}}>
-                    📝 Instrucciones para el Administrador
+                    Instrucciones para el Administrador
                   </h6>
                   <ol style={{marginBottom: '0', paddingLeft: '20px', color: '#6b7280', fontSize: '13px'}}>
                     <li>Abrir el enlace de activación recibido por email</li>
                     <li>Crear una contraseña segura (mínimo 8 caracteres)</li>
-                    <li>Iniciar sesión con el usuario: <strong>{activationData.adminNickname}</strong></li>
+                    {/*<li>Iniciar sesión con el usuario: <strong>{activationData.adminNickname}</strong></li>*/}
+                    <li>Iniciar sesión con el usuario y contraseña generados</li>
                     <li>Acceder al portal de la clínica</li>
                   </ol>
                 </div>
@@ -735,6 +909,149 @@ const GestionClinicas = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Confirmación */}
+      {showConfirmModal && confirmData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1050,
+          animation: 'fadeIn 0.2s ease-in'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            padding: '0',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            animation: 'slideIn 0.3s ease-out'
+          }}>
+            <div style={{
+              padding: '24px 30px',
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <h5 style={{
+                margin: 0,
+                color: '#111827',
+                fontSize: '20px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <i className="fa fa-exclamation-triangle" style={{color: '#f59e0b', fontSize: '24px'}}></i>
+                {confirmData.title}
+              </h5>
+            </div>
+            <div style={{
+              padding: '24px 30px'
+            }}>
+              <p style={{
+                margin: 0,
+                color: '#6b7280',
+                fontSize: '15px',
+                lineHeight: '1.6'
+              }}>
+                {confirmData.message}
+              </p>
+            </div>
+            <div style={{
+              padding: '20px 30px',
+              backgroundColor: '#f8fafc',
+              borderBottomLeftRadius: '12px',
+              borderBottomRightRadius: '12px',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setConfirmData(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #d1d5db',
+                  color: '#374151',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#ffffff';
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmData.onConfirm) {
+                    confirmData.onConfirm();
+                  }
+                  setShowConfirmModal(false);
+                  setConfirmData(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  backgroundColor: confirmData.confirmColor || '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.opacity = '0.9';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.opacity = '1';
+                }}
+              >
+                {confirmData.confirmText || 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </>
   );
 };

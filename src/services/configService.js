@@ -1,5 +1,7 @@
 // Servicio para obtener configuraciones del backend
-const API_BASE_URL = 'http://localhost:8080/api';
+import config from '../config';
+
+const API_BASE_URL = `${config.BACKEND_URL}/api`;
 
 export const configService = {
   // Obtener lista de nacionalidades

@@ -1,23 +1,52 @@
 import React, { useEffect, useState } from 'react';
 import PerfilUsuario from './PerfilUsuario';
 import GestionClinicas from './GestionClinicas';
+import config from '../config';
 
 const Login = () => {
+  const [popup, setPopup] = useState({ show: false, message: '', type: 'error' });
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isMinor, setIsMinor] = useState(false);
 
   useEffect(() => {
+    console.log(' [DEBUG] Login.js useEffect ejecutado');
+    console.log(' [DEBUG] URL completa:', window.location.href);
     const urlParams = new URLSearchParams(window.location.search);
     const loginStatus = urlParams.get('login');
     const logoutStatus = urlParams.get('logout');
     const error = urlParams.get('error');
+    const tempToken = urlParams.get('token');
     
-    if (loginStatus === 'success') {
+    console.log(' [DEBUG] loginStatus:', loginStatus);
+    console.log(' [DEBUG] tempToken:', tempToken ? 'PRESENTE' : 'NO PRESENTE');
+    
+    // Verificar si ya se procesó el token (evitar llamadas duplicadas)
+    const tokenProcessed = sessionStorage.getItem('token_exchange_processed');
+    
+    if (error === 'menor_de_edad') {
+      console.warn('⛔ Usuario identificado como menor de edad');
+      setIsMinor(true);
+      setLoading(false);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (loginStatus === 'success' && tempToken && !tokenProcessed) {
+      console.log('Login exitoso! Intercambiando token temporal...');
+      sessionStorage.setItem('token_exchange_processed', 'true');
+      exchangeTokenAndSetCookie(tempToken);
+    } else if (loginStatus === 'success' && tempToken && tokenProcessed) {
+      console.log('Token ya fue procesado, limpiando URL...');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      checkSession();
+    } else if (loginStatus === 'success') {
       console.log('Login exitoso! Verificando sesión...');
       window.history.replaceState({}, document.title, window.location.pathname);
       checkSession();
     } else if (logoutStatus === 'success') {
       console.log('Logout exitoso');
+      sessionStorage.removeItem('token_exchange_processed');
       setUser(null);
       setLoading(false);
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -27,15 +56,80 @@ const Login = () => {
     
     if (error) {
       console.error('Error en autenticación:', error);
-      alert('Error en la autenticación: ' + error);
+      sessionStorage.removeItem('token_exchange_processed');
+      setPopup({ show: true, message: 'Error en la autenticación: ' + error, type: 'error' });
       window.history.replaceState({}, document.title, window.location.pathname);
       setLoading(false);
     }
   }, []);
   
+  const exchangeTokenAndSetCookie = async (tempToken) => {
+    // Validar que el token no esté vacío
+    if (!tempToken || tempToken.trim() === '') {
+      console.error('Token temporal vacío o inválido');
+      sessionStorage.removeItem('token_exchange_processed');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      checkSession();
+      return;
+    }
+
+    try {
+      console.log('🔄 Intercambiando token temporal:', tempToken.substring(0, 10) + '...');
+      // Intercambiar token temporal por JWT real
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/exchange-token`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token: tempToken })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        // Si el token ya fue usado o expiró, limpiar el flag para permitir reintento
+        if (response.status === 400 || response.status === 401) {
+          sessionStorage.removeItem('token_exchange_processed');
+        }
+        // El exchange es opcional - la cookie ya está seteada por el callback
+        // Si falla, simplemente verificar sesión (la cookie ya está)
+        console.warn('Exchange de token falló, pero la cookie JWT ya está seteada por el callback');
+        console.warn('Continuando con verificación de sesión...');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        checkSession();
+        return; // No lanzar error, solo continuar
+      }
+      
+      const data = await response.json();
+      // El backend ya setea la cookie cross-site, no necesitamos hacerlo aquí
+      // El JWT se puede recibir pero no se usa para setear cookie propia
+      
+      console.log('Token intercambiado - Cookie establecida por el backend (cross-site)');
+      
+      // Limpiar URL inmediatamente (remover token de la barra de direcciones)
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Limpiar el flag de procesamiento
+      sessionStorage.removeItem('token_exchange_processed');
+      
+      // Verificar sesión
+      checkSession();
+      
+    } catch (error) {
+      console.error('Error intercambiando token:', error);
+      // El exchange es opcional - la cookie ya está seteada por el callback
+      // Si falla, simplemente verificar sesión (la cookie ya está)
+      console.warn('Exchange de token falló, pero la cookie JWT ya está seteada por el callback');
+      console.warn('Continuando con verificación de sesión...');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      checkSession();
+      // No mostrar alert - la cookie ya está y el login funcionará
+    }
+  };
+  
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -50,7 +144,7 @@ const Login = () => {
         
         // Obtener información completa del usuario incluyendo el rol
         try {
-          const profileResponse = await fetch('http://localhost:8080/api/users/profile', {
+          const profileResponse = await fetch(`${config.BACKEND_URL}/api/users/profile`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -87,7 +181,7 @@ const Login = () => {
     const authUrl = new URL('https://auth-testing.iduruguay.gub.uy/oidc/v1/authorize');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', '890192');
-    authUrl.searchParams.set('redirect_uri', 'http://localhost:8080');
+    authUrl.searchParams.set('redirect_uri', config.CALLBACK_URL);
     authUrl.searchParams.set('scope', 'openid personal_info email');
     authUrl.searchParams.set('state', state);
     
@@ -95,8 +189,37 @@ const Login = () => {
   };
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:8080/api/auth/logout';
+    window.location.href = `${config.BACKEND_URL}/api/auth/logout`;
   };
+
+  if (isMinor) {
+    return (
+      <div className="slider_area" style={{minHeight: '100vh', display: 'flex', alignItems: 'center', backgroundColor: '#f2f3f7'}}>
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-xl-8 col-lg-8">
+              <div className="welcome_hcen_info text-center" style={{backgroundColor: 'white', padding: '50px', borderRadius: '10px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)'}}>
+                <div style={{marginBottom: '30px'}}>
+                  <i className="flaticon-warning" style={{fontSize: '60px', color: '#ff4b4b'}}></i>
+                </div>
+                <h3 style={{color: '#1f2b7b', marginBottom: '20px'}}>Acceso Restringido</h3>
+                <p style={{fontSize: '18px', color: '#666', marginBottom: '30px'}}>
+                  Lo sentimos, el acceso a la Historia Clínica Electrónica Nacional no está permitido para menores de 18 años.
+                </p>
+                <div className="alert alert-info" role="alert" style={{textAlign: 'left', marginBottom: '30px'}}>
+                  <h5 className="alert-heading"><i className="fa fa-info-circle"></i> Información Importante</h5>
+                  <p className="mb-0">
+                    Si usted considera que esto es un error, por favor verifique sus datos en la Dirección Nacional de Identificación Civil (DNIC).
+                  </p>
+                </div>
+                <a href="/" className="boxed-btn5">Volver al Inicio</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -354,6 +477,13 @@ const Login = () => {
           </div>
         </div>
       </footer>
+
+      <GenericPopup
+        show={popup.show}
+        onClose={() => setPopup({ ...popup, show: false })}
+        message={popup.message}
+        type={popup.type}
+      />
     </>
   );
 };

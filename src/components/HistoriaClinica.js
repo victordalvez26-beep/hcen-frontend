@@ -1,5 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import config from '../config';
+import GenericPopup from './GenericPopup';
 
 const HistoriaClinica = () => {
   const navigate = useNavigate();
@@ -8,15 +10,32 @@ const HistoriaClinica = () => {
   const [documentosClinicos, setDocumentosClinicos] = useState([]);
   const [loadingDocumentos, setLoadingDocumentos] = useState(false);
   const [error, setError] = useState(null);
+  const [descargandoHistoria, setDescargandoHistoria] = useState(false);
+  const [popup, setPopup] = useState({ show: false, message: '', type: 'error' });
   const [filtros, setFiltros] = useState({
     categoria: 'todos',
     institucion: 'todos',
     profesional: 'todos'
   });
 
-  const checkSession = useCallback(async () => {
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    console.log('🔄 useEffect ejecutado. User:', user);
+    if (user && user.uid) {
+      console.log('Usuario autenticado, cargando documentos');
+      loadDocumentosPorUsuario();
+    } else {
+      console.log('Usuario no autenticado');
+      console.log('User:', user);
+    }
+  }, [user]);
+  
+  const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -28,11 +47,11 @@ const HistoriaClinica = () => {
       
       if (data.authenticated) {
         console.log('👤 Datos del usuario recibidos:', data);
-        console.log('📋 Campo documento:', data.documento);
-        console.log('📋 Todos los campos del usuario:', Object.keys(data));
+        console.log('Campo documento:', data.documento);
+        console.log('Todos los campos del usuario:', Object.keys(data));
         setUser(data);
       } else {
-        console.log('❌ Sesión no válida, redirigiendo a login');
+        console.log('Sesión no válida, redirigiendo a login');
         setUser(null);
         window.location.href = '/';
       }
@@ -43,22 +62,21 @@ const HistoriaClinica = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const loadDocumentos = useCallback(async (ci) => {
+  const loadDocumentosPorUsuario = async () => {
     setLoadingDocumentos(true);
     setError(null);
-    console.log('🔍 Cargando documentos para CI:', ci);
+    console.log(' Cargando documentos para usuario autenticado');
     try {
-      const url = `http://localhost:8080/hcen-rndc-service/api/rndc/documentos/paciente/${ci}`;
+      const url = `${config.BACKEND_URL}/api/metadatos-documento/usuario`;
       console.log('🌐 URL:', url);
       
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Profesional-Id': user?.uid || ''
+          'Content-Type': 'application/json'
         }
       });
 
@@ -70,12 +88,12 @@ const HistoriaClinica = () => {
       }
 
       const documentos = await response.json();
-      console.log('📄 Documentos recibidos del backend:', documentos);
+      console.log('Documentos recibidos del backend:', documentos);
       console.log('🆔 IDs de documentos del backend:', documentos.map(doc => doc.id));
       
       // Mapear los documentos del backend al formato esperado por el frontend
       const documentosMapeados = documentos.map((doc, index) => ({
-        id: doc.id || (index + 1), // Usar ID real del backend o índice + 1
+        id: doc.id || (index + 1),
         fecha: doc.fechaCreacion || 'N/A',
         institucion: doc.clinicaOrigen || 'Institución Desconocida',
         categoria: doc.tipoDocumento || 'Sin Categoría',
@@ -83,40 +101,75 @@ const HistoriaClinica = () => {
         descripcion: doc.descripcion || 'Sin descripción disponible',
         formatoDocumento: doc.formatoDocumento,
         uriDocumento: doc.uriDocumento,
-        accesoPermitido: doc.accesoPermitido !== false
+        accesoPermitido: doc.accesoPermitido !== false,
+        codDocum: doc.codDocum
       }));
 
       console.log('💾 Documentos mapeados guardados en estado:', documentosMapeados);
       setDocumentosClinicos(documentosMapeados);
     } catch (error) {
-      console.error('❌ Error cargando documentos:', error);
-      console.error('❌ Error details:', error.message);
+      console.error('Error cargando documentos:', error);
+      console.error('Error details:', error.message);
       setError('No se pudieron cargar los documentos clínicos. Por favor, intente más tarde.');
       setDocumentosClinicos([]);
     } finally {
       setLoadingDocumentos(false);
     }
-  }, [user?.uid]);
+  };
 
-  useEffect(() => {
-    checkSession();
-  }, [checkSession]);
+  const descargarHistoriaCompleta = async () => {
+    setDescargandoHistoria(true);
+    try {
+      const url = `${config.BACKEND_URL}/api/metadatos-documento/paciente/historia`;
+      console.log('📥 Descargando historia clínica completa desde:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-  useEffect(() => {
-    console.log('🔄 useEffect ejecutado. User:', user);
-    if (user && user.documento && user.documento.trim() !== '') {
-      console.log('📋 Usuario tiene documento:', user.documento);
-      loadDocumentos(user.documento);
-    } else if (user && user.uid && user.uid.startsWith('uy-ci-')) {
-      // TEMPORAL: Extraer documento del UID (uy-ci-53472408 -> 53472408)
-      const documentoExtraido = user.uid.replace('uy-ci-', '');
-      console.log('🔧 TEMPORAL: Extrayendo documento del UID:', documentoExtraido);
-      loadDocumentos(documentoExtraido);
-    } else if (user) {
-      console.log('❌ Usuario no tiene documento o no está logueado');
-      console.log('User:', user);
+      if (!response.ok) {
+        throw new Error(`Error al descargar historia clínica: ${response.status}`);
+      }
+
+      // Obtener el blob del archivo
+      const blob = await response.blob();
+      
+      // Crear un enlace temporal para descargar
+      const urlBlob = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = urlBlob;
+      
+      // Obtener el nombre del archivo del header Content-Disposition si está disponible
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'historia-clinica-completa.pdf';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpiar
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(urlBlob);
+      
+      console.log('Historia clínica descargada exitosamente');
+    } catch (error) {
+      console.error('Error descargando historia clínica:', error);
+      setPopup({ show: true, message: 'No se pudo descargar la historia clínica completa. Por favor, intente más tarde.', type: 'error' });
+    } finally {
+      setDescargandoHistoria(false);
     }
-  }, [user, loadDocumentos]);
+  };
+
 
   const handleFiltroChange = (campo, valor) => {
     setFiltros(prev => ({
@@ -132,13 +185,37 @@ const HistoriaClinica = () => {
     return true;
   });
 
+  const resumen = useMemo(() => {
+    const total = documentosClinicos.length;
+    const restringidos = documentosClinicos.filter((doc) => !doc.accesoPermitido).length;
+    return {
+      total,
+      conAcceso: total - restringidos,
+      restringidos
+    };
+  }, [documentosClinicos]);
+
   const categorias = [...new Set(documentosClinicos.map(doc => doc.categoria))];
   const instituciones = [...new Set(documentosClinicos.map(doc => doc.institucion))];
   const profesionales = [...new Set(documentosClinicos.map(doc => doc.profesional))];
 
-  console.log('🎨 Renderizando con documentosClinicos:', documentosClinicos);
-  console.log('🎨 Cantidad de documentos:', documentosClinicos.length);
-  console.log('🎨 Documentos filtrados:', documentosFiltrados.length);
+  const formatDate = (isoDate) => {
+    if (!isoDate) return 'Sin fecha';
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) return isoDate;
+    return date.toLocaleString('es-UY', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatCategoria = (categoria) => {
+    if (!categoria) return 'Sin Categoría';
+    return categoria.replaceAll('_', ' ');
+  };
 
   if (loading) {
     return (
@@ -235,6 +312,137 @@ const HistoriaClinica = () => {
       </div>
 
       <div className="container" style={{paddingTop: '60px', paddingBottom: '60px'}}>
+        {/* Botón de Descarga de Historia Completa */}
+        <div className="row mb-4">
+          <div className="col-12">
+            <div style={{ 
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '20px 24px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px'
+            }}>
+              <div style={{ flex: '1', minWidth: '200px' }}>
+                <div style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: '4px'
+                }}>
+                  <i className="flaticon-download" style={{ 
+                    fontSize: '24px', 
+                    color: '#3b82f6',
+                    marginRight: '12px'
+                  }}></i>
+                  <h5 style={{ 
+                    marginBottom: '0',
+                    color: '#1f2b7b',
+                    fontWeight: '600',
+                    fontSize: '18px'
+                  }}>
+                    Descargar Historia Clínica Completa
+                  </h5>
+                </div>
+                <p style={{ 
+                  marginBottom: '0',
+                  marginLeft: '36px',
+                  color: '#64748b',
+                  fontSize: '14px'
+                }}>
+                  Obtén todos tus documentos médicos en un solo archivo PDF
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={descargarHistoriaCompleta}
+                disabled={descargandoHistoria || loadingDocumentos}
+                style={{
+                  padding: '12px 28px',
+                  backgroundColor: descargandoHistoria || loadingDocumentos ? '#cbd5e1' : '#3b82f6',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  cursor: descargandoHistoria || loadingDocumentos ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: descargandoHistoria || loadingDocumentos ? 'none' : '0 2px 8px rgba(59, 130, 246, 0.25)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: descargandoHistoria || loadingDocumentos ? 'none' : 'auto'
+                }}
+                onMouseEnter={(e) => {
+                  if (!descargandoHistoria && !loadingDocumentos) {
+                    e.currentTarget.style.backgroundColor = '#2563eb';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.35)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!descargandoHistoria && !loadingDocumentos) {
+                    e.currentTarget.style.backgroundColor = '#3b82f6';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.25)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {descargandoHistoria ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" style={{width: '16px', height: '16px', borderWidth: '2px'}}></span>
+                    Descargando...
+                  </>
+                ) : (
+                  <>
+                    <i className="flaticon-download" style={{fontSize: '18px'}}></i>
+                    Descargar PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tarjetas de Resumen */}
+        <div className="row g-4 mb-4">
+          <div className="col-md-4">
+            <div className="card shadow-sm h-100" style={{ borderRadius: '16px' }}>
+              <div className="card-body text-center">
+                <p className="text-muted text-uppercase mb-1">Documentos Totales</p>
+                <h2 style={{ fontWeight: '700' }}>{resumen.total}</h2>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="card shadow-sm h-100" style={{ borderRadius: '16px' }}>
+              <div className="card-body text-center">
+                <p className="text-muted text-uppercase mb-1">Accesos Permitidos</p>
+                <h2 style={{ fontWeight: '700', color: '#16a34a' }}>{resumen.conAcceso}</h2>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="card shadow-sm h-100" style={{ borderRadius: '16px' }}>
+              <div className="card-body text-center">
+                <p className="text-muted text-uppercase mb-1">Restringidos</p>
+                <h2 style={{ fontWeight: '700', color: '#dc2626' }}>{resumen.restringidos}</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="alert alert-warning" role="alert" style={{marginBottom: '30px'}}>
+            <i className="fa fa-exclamation-triangle me-2" />
+            {error}
+          </div>
+        )}
+
         <div className="row">
           {/* Filtros - Barra lateral */}
           <div className="col-xl-3 col-lg-4">
@@ -289,7 +497,7 @@ const HistoriaClinica = () => {
                   >
                     <option value="todos">Todas las categorías</option>
                     {categorias.map(categoria => (
-                      <option key={categoria} value={categoria}>{categoria}</option>
+                      <option key={categoria} value={categoria}>{formatCategoria(categoria)}</option>
                     ))}
                   </select>
                 </div>
@@ -514,7 +722,7 @@ const HistoriaClinica = () => {
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px'
                             }}>
-                              {documento.categoria}
+                              {formatCategoria(documento.categoria)}
                             </span>
                             <span style={{
                               marginLeft: '12px', 
@@ -523,7 +731,7 @@ const HistoriaClinica = () => {
                               fontWeight: '500'
                             }}>
                               <i className="flaticon-calendar" style={{marginRight: '5px'}}></i>
-                              {documento.fecha}
+                              {formatDate(documento.fecha)}
                             </span>
                           </div>
                           
@@ -574,37 +782,60 @@ const HistoriaClinica = () => {
                               fontWeight: '500'
                             }}>
                               <i className="flaticon-calendar" style={{marginRight: '6px', color: '#3b82f6'}}></i>
-                              {documento.fecha}
+                              {formatDate(documento.fecha)}
                             </div>
-                            <button
-                              type="button"
-                              className="boxed-btn3"
-                              style={{
-                                padding: '8px 20px',
-                                fontSize: '13px',
-                                backgroundColor: '#3b82f6',
-                                color: '#ffffff',
-                                borderRadius: '6px',
-                                fontWeight: '600',
-                                transition: 'all 0.3s ease',
-                                border: 'none',
-                                cursor: 'pointer'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = '#1d4ed8';
-                                e.target.style.transform = 'translateY(-2px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = '#3b82f6';
-                                e.target.style.transform = 'translateY(0)';
-                              }}
-                              onClick={() => {
-                                navigate(`/documento/${documento.id}`);
-                              }}
-                            >
-                              <i className="flaticon-eye" style={{marginRight: '4px'}}></i>
-                              Ver Detalle
-                            </button>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                              {documento.id && documento.uriDocumento ? (
+                                <a
+                                  href={`${config.BACKEND_URL}/api/metadatos-documento/${documento.id}/descargar`}
+                                  download={`${documento.categoria || 'documento'}-${documento.id}.pdf`}
+                                  className="boxed-btn3" 
+                                  style={{
+                                    padding: '8px 20px',
+                                    fontSize: '13px',
+                                    textDecoration: 'none',
+                                    backgroundColor: '#10b981',
+                                    color: '#ffffff',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s ease',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'inline-block'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = '#059669';
+                                    e.target.style.transform = 'translateY(-2px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = '#10b981';
+                                    e.target.style.transform = 'translateY(0)';
+                                  }}
+                                >
+                                  <i className="flaticon-download" style={{marginRight: '4px'}}></i>
+                                  Descargar PDF
+                                </a>
+                              ) : (
+                                <span
+                                  className="boxed-btn3" 
+                                  style={{
+                                    padding: '8px 20px',
+                                    fontSize: '13px',
+                                    backgroundColor: '#9ca3af',
+                                    color: '#ffffff',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    cursor: 'not-allowed',
+                                    display: 'inline-block',
+                                    opacity: 0.6
+                                  }}
+                                  title="Documento no disponible para descarga"
+                                >
+                                  <i className="flaticon-download" style={{marginRight: '4px'}}></i>
+                                  No disponible
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -618,62 +849,12 @@ const HistoriaClinica = () => {
         </div>
       </div>
 
-      <footer className="footer">
-        <div className="footer_top">
-          <div className="container">
-            <div className="row">
-              <div className="col-xl-4 col-md-6 col-lg-4">
-                <div className="footer_widget">
-                  <div className="footer_logo">
-                    <a href="/">
-                      <img src="/assets/img/logo.png" alt="HCEN" style={{maxWidth: '150px'}} />
-                    </a>
-                  </div>
-                  <p>
-                    HCEN - Historia Clínica Electrónica Nacional
-                  </p>
-                </div>
-              </div>
-              <div className="col-xl-4 col-md-6 col-lg-4">
-                <div className="footer_widget">
-                  <h3 className="footer_title">
-                    Enlaces Útiles
-                  </h3>
-                  <ul>
-                    <li><a href="https://www.gub.uy">Gobierno de Uruguay</a></li>
-                    <li><a href="https://www.msp.gub.uy">Ministerio de Salud Pública</a></li>
-                    <li><a href="https://www.gub.uy/tramites">Trámites</a></li>
-                  </ul>
-                </div>
-              </div>
-              <div className="col-xl-4 col-md-6 col-lg-4">
-                <div className="footer_widget">
-                  <h3 className="footer_title">
-                    Contacto
-                  </h3>
-                  <p>
-                    Montevideo, Uruguay<br />
-                    Email: info@hcen.gub.uy<br />
-                    Tel: 0800 1234
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="copy-right_text">
-          <div className="container">
-            <div className="footer_border"></div>
-            <div className="row">
-              <div className="col-xl-12">
-                <p className="copy_right text-center">
-                  © 2024 HCEN. Todos los derechos reservados.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <GenericPopup
+        show={popup.show}
+        onClose={() => setPopup({ ...popup, show: false })}
+        message={popup.message}
+        type={popup.type}
+      />
     </>
   );
 };

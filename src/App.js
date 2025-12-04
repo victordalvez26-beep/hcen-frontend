@@ -1,14 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Home from './components/Home';
 import HistoriaClinica from './components/HistoriaClinica';
 import DetalleDocumento from './components/DetalleDocumento';
-import CompleteProfile from './components/CompleteProfile';
+// import CompleteProfile from './components/CompleteProfile'; // Eliminado
 import GestionClinicas from './components/GestionClinicas';
 import GestionUsuarios from './components/GestionUsuarios';
 import GestionPrestadores from './components/GestionPrestadores';
+import GestionPoliticas from './components/GestionPoliticas';
+import MiPerfil from './components/MiPerfil';
+import MisClinicas from './components/MisClinicas';
+import ReportesAdmin from './components/ReportesAdmin';
 import RegistroPrestador from './components/RegistroPrestador';
+import Contacto from './components/Contacto';
+import MenorDeEdad from './components/MenorDeEdad';
+import Redirecting from './components/Redirecting';
 import Header from './components/Header';
+import config from './config';
 import './App.css';
 import './styles/colors.css';
 import './styles/components.css';
@@ -16,15 +24,119 @@ import './styles/components.css';
 function AppContent() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewRole, setViewRole] = useState(null); // Rol de vista activo (para cambio de perspectiva)
   const location = useLocation();
+  const previousUserId = useRef(null); // Para rastrear cambios de usuario
+  const viewRoleInitialized = useRef(false); // Para evitar inicializaciones múltiples
+
+  // Función para obtener viewRole desde localStorage
+  const getViewRoleFromStorage = (userId) => {
+    if (!userId) return null;
+    const stored = localStorage.getItem(`viewRole_${userId}`);
+    return stored || null;
+  };
+
+  // Función para guardar viewRole en localStorage
+  const saveViewRoleToStorage = (userId, role) => {
+    if (userId && role) {
+      localStorage.setItem(`viewRole_${userId}`, role);
+    } else if (userId) {
+      localStorage.removeItem(`viewRole_${userId}`);
+    }
+  };
 
   useEffect(() => {
+    // Verificar si hay error de menor de edad o logout en la URL
+    const params = new URLSearchParams(window.location.search);
+    
+    if (params.get('error') === 'menor_de_edad') {
+      console.log('Error de menor de edad detectado en URL');
+      setLoading(false);
+      setUser(null);
+      // Limpiar cualquier estado de sesión para evitar conflictos
+      sessionStorage.clear();
+      // No hacer checkSession, dejar que la ruta /menor-de-edad se encargue
+      return;
+    }
+    
+    
     checkSession();
   }, []);
   
+  // Inicializar viewRole solo cuando el usuario cambia (nuevo login o logout)
+  // Usar localStorage para persistir la preferencia del usuario
+  useEffect(() => {
+    const currentUserId = user?.uid || null;
+    
+    // Si el usuario cambió (nuevo login o logout)
+    if (previousUserId.current !== currentUserId) {
+      const oldUserId = previousUserId.current;
+      previousUserId.current = currentUserId;
+      viewRoleInitialized.current = false;
+      
+      if (user?.uid) {
+        // Intentar cargar viewRole desde localStorage
+        const storedViewRole = getViewRoleFromStorage(user.uid);
+        
+        // Validar que el rol almacenado sea coherente con los permisos reales
+        // Si el usuario NO es admin, NO puede tener viewRole 'AD'
+        if (storedViewRole && (storedViewRole === 'US' || (storedViewRole === 'AD' && user.rol === 'AD'))) {
+          // Si hay un viewRole guardado y es válido, usarlo
+          setViewRole(storedViewRole);
+        } else {
+          // Si no hay viewRole guardado o es inválido, inicializar con el rol real
+          setViewRole(user.rol);
+          saveViewRoleToStorage(user.uid, user.rol);
+        }
+        viewRoleInitialized.current = true;
+      } else {
+        // Resetear si no hay usuario (logout)
+        setViewRole(null);
+        if (oldUserId) {
+          localStorage.removeItem(`viewRole_${oldUserId}`);
+        }
+      }
+    } else if (user?.uid && !viewRoleInitialized.current) {
+      // Si el usuario no cambió pero aún no se inicializó (puede pasar en re-renders)
+      // Cargar desde localStorage o usar el rol real
+      const storedViewRole = getViewRoleFromStorage(user.uid);
+      
+      // Validar coherencia
+      if (storedViewRole && (storedViewRole === 'US' || (storedViewRole === 'AD' && user.rol === 'AD'))) {
+        setViewRole(storedViewRole);
+      } else {
+        setViewRole(user.rol);
+        saveViewRoleToStorage(user.uid, user.rol);
+      }
+      viewRoleInitialized.current = true;
+    }
+    // Si el usuario no cambió y ya está inicializado, NO hacer nada
+    // Esto previene que se resetee cuando el objeto user cambia de referencia
+  }, [user]); // Solo dependemos de user
+  
+  // Función wrapper para setViewRole que también guarda en localStorage
+  const setViewRoleWithStorage = (newRole) => {
+    setViewRole(newRole);
+    if (user?.uid) {
+      saveViewRoleToStorage(user.uid, newRole);
+    }
+  };
+
+  // Efecto adicional para restaurar viewRole desde localStorage si se pierde
+  // Esto puede pasar si el componente se re-renderiza y el estado se pierde
+  useEffect(() => {
+    if (user?.uid && user.rol === 'AD' && !viewRole) {
+      // Si es admin y no hay viewRole, intentar restaurar desde localStorage
+      const storedViewRole = getViewRoleFromStorage(user.uid);
+      if (storedViewRole && (storedViewRole === 'AD' || storedViewRole === 'US')) {
+        setViewRole(storedViewRole);
+      }
+    }
+  }, [user?.uid, user?.rol, viewRole]);
+  
   const checkSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/session', {
+      const response = await fetch(`${config.BACKEND_URL}/api/auth/session`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -32,11 +144,37 @@ function AppContent() {
         }
       });
       
-      const data = await response.json();
+      const sessionData = await response.json();
       
-      if (data.authenticated) {
-        setUser(data);
+      if (sessionData.authenticated) {
+        // Obtener perfil completo (que lee de INUS)
+        try {
+            const profileResponse = await fetch(`${config.BACKEND_URL}/api/users/profile`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                // Combinar datos: perfil tiene prioridad, sesión tiene rol/auth
+                setUser({ ...sessionData, ...profileData });
+            } else {
+                console.error('Error obteniendo perfil:', profileResponse.status);
+                setUser(sessionData); // Fallback
+            }
+        } catch (error) {
+            console.error('Error de red obteniendo perfil:', error);
+            setUser(sessionData); // Fallback
+        }
       } else {
+        // Verificar si es error de menor de edad
+        if (sessionData.error === 'menor_de_edad') {
+          console.log('Menor de edad detectado en checkSession');
+          window.location.href = '/?error=menor_de_edad';
+          return;
+        }
         setUser(null);
       }
     } catch (error) {
@@ -72,6 +210,12 @@ function AppContent() {
     if (location.pathname.startsWith('/documento/')) return 'historia';
     if (location.pathname === '/gestion-clinicas') return 'gestion-clinicas';
     if (location.pathname === '/gestion-usuarios') return 'gestion-usuarios';
+    if (location.pathname === '/gestion-prestadores') return 'gestion-prestadores';
+    if (location.pathname === '/gestion-politicas') return 'gestion-politicas';
+    if (location.pathname === '/reportes') return 'reportes';
+    if (location.pathname === '/mis-clinicas') return 'mis-clinicas';
+    if (location.pathname === '/mi-perfil') return 'mi-perfil';
+    if (location.pathname === '/contact') return 'contact';
     return '';
   };
 
@@ -79,18 +223,12 @@ function AppContent() {
     if (!user) {
       return <Navigate to="/" replace />;
     }
-    if (user && !user.profileCompleted && location.pathname !== '/complete-profile') {
-      return <Navigate to="/complete-profile" replace />;
-    }
     return children;
   };
 
   const AdminRoute = ({ children }) => {
     if (!user) {
       return <Navigate to="/" replace />;
-    }
-    if (user && !user.profileCompleted) {
-      return <Navigate to="/complete-profile" replace />;
     }
     if (user && user.rol !== 'AD') {
       return (
@@ -127,13 +265,19 @@ function AppContent() {
 
   return (
     <div className="App">
-      {location.pathname !== '/complete-profile' && <Header user={user} activePage={getActivePage()} />}
-      <div style={{ paddingTop: location.pathname !== '/complete-profile' ? '70px' : '0' }}>
+      {location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad' && location.pathname !== '/redirecting' && (
+        <Header 
+          user={user} 
+          activePage={getActivePage()} 
+          viewRole={viewRole}
+          setViewRole={setViewRoleWithStorage}
+        />
+      )}
+      <div style={{ paddingTop: (location.pathname !== '/complete-profile' && location.pathname !== '/menor-de-edad' && location.pathname !== '/redirecting') ? '70px' : '0' }} className="main-content-wrapper">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/complete-profile" element={
-            user && !user.profileCompleted ? <CompleteProfile /> : <Navigate to="/" replace />
-          } />
+          <Route path="/" element={<Home user={user} />} />
+          <Route path="/menor-de-edad" element={<MenorDeEdad />} />
+          <Route path="/redirecting" element={<Redirecting />} />
           <Route path="/registro-prestador" element={<RegistroPrestador />} />
           <Route path="/historia-clinica" element={
             <ProtectedRoute>
@@ -152,7 +296,7 @@ function AppContent() {
         } />
         <Route path="/gestion-usuarios" element={
           <AdminRoute>
-            <GestionUsuarios />
+            <GestionUsuarios currentUser={user} onSessionUpdate={checkSession} />
           </AdminRoute>
         } />
         <Route path="/gestion-prestadores" element={
@@ -160,6 +304,27 @@ function AppContent() {
             <GestionPrestadores />
           </AdminRoute>
         } />
+        <Route path="/gestion-politicas" element={
+          <AdminRoute>
+            <GestionPoliticas />
+          </AdminRoute>
+        } />
+          <Route path="/reportes" element={
+          <AdminRoute>
+            <ReportesAdmin />
+          </AdminRoute>
+        } />
+          <Route path="/mis-clinicas" element={
+            <ProtectedRoute>
+              <MisClinicas />
+            </ProtectedRoute>
+          } />
+          <Route path="/mi-perfil" element={
+            <ProtectedRoute>
+              <MiPerfil />
+            </ProtectedRoute>
+          } />
+          <Route path="/contact" element={<Contacto />} />
         </Routes>
       </div>
     </div>

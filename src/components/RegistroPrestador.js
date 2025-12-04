@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import config from '../config';
 
 /**
  * Página de registro para Prestadores de Salud.
@@ -11,6 +12,7 @@ function RegistroPrestador() {
   const token = searchParams.get('token');
   
   const [loading, setLoading] = useState(false);
+  const [registroExitoso, setRegistroExitoso] = useState(null); // datos devueltos por el backend (incluye apiKey)
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   
   const [formData, setFormData] = useState({
@@ -55,7 +57,7 @@ function RegistroPrestador() {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8080/api/prestadores-salud/completar-registro', {
+      const response = await fetch(`${config.BACKEND_URL}/api/prestadores-salud/completar-registro`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -73,15 +75,15 @@ function RegistroPrestador() {
       
       if (response.ok) {
         const data = await response.json();
+
+        // Guardar datos completos del prestador (incluye apiKey) para mostrarlos en pantalla
+        setRegistroExitoso(data);
+
         setMensaje({ 
           tipo: 'success', 
-          texto: `¡Registro completado! Tu prestador "${data.nombre}" ha sido activado en HCEN.` 
+          texto: data.message 
+            || `¡Registro completado! Tu prestador "${data.nombre}" ha sido activado en HCEN.`
         });
-        
-        // Redirigir a página de éxito después de 3 segundos
-        setTimeout(() => {
-          navigate('/');
-        }, 3000);
         
       } else {
         const errorData = await response.json();
@@ -175,207 +177,295 @@ function RegistroPrestador() {
                 </div>
               )}
               
-              {/* Formulario */}
-              <div style={{
-                background: '#ffffff',
-                padding: '40px',
-                borderRadius: '12px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-              }}>
-                <form onSubmit={handleSubmit}>
-                  
-                  {/* RUT */}
-                  <div style={{marginBottom: '25px'}}>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '8px',
-                      fontWeight: '600',
-                      color: '#374151'
-                    }}>
-                      RUT *
-                    </label>
-                    <input
-                      name="rut"
-                      type="text"
-                      value={formData.rut}
-                      onChange={handleInputChange}
-                      placeholder="211234560012"
-                      maxLength="12"
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '15px'
-                      }}
-                    />
-                    <small style={{color: '#6b7280', fontSize: '13px'}}>
-                      Registro Único Tributario (12 dígitos)
-                    </small>
+              {/* Si el registro fue exitoso, mostrar resumen y API Key en lugar del formulario */}
+              {registroExitoso ? (
+                <div style={{
+                  background: '#ffffff',
+                  padding: '40px',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                }}>
+                  <h3 style={{ 
+                    fontSize: '22px', 
+                    fontWeight: '700', 
+                    marginBottom: '20px', 
+                    color: '#111827' 
+                  }}>
+                    Datos de tu Prestador
+                  </h3>
+
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>Nombre:</strong> {registroExitoso.nombre}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>RUT:</strong> {registroExitoso.rut}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>URL del servidor:</strong> {registroExitoso.url}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>Estado:</strong> {registroExitoso.estado}
+                    </div>
                   </div>
-                  
-                  {/* URL del Servidor */}
-                  <div style={{marginBottom: '25px'}}>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '8px',
-                      fontWeight: '600',
-                      color: '#374151'
+
+                  <div style={{
+                    padding: '16px',
+                    borderRadius: '8px',
+                    background: '#fef3c7',
+                    border: '1px solid #facc15',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{ 
+                      fontSize: '15px', 
+                      fontWeight: '600', 
+                      color: '#92400e',
+                      marginBottom: '8px'
                     }}>
-                      URL del Servidor de Documentos Clínicos *
-                    </label>
-                    <input
-                      name="url"
-                      type="url"
-                      value={formData.url}
-                      onChange={handleInputChange}
-                      placeholder="https://api.miprestador.com"
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '15px'
-                      }}
-                    />
-                    <small style={{color: '#6b7280', fontSize: '13px'}}>
-                      URL base de su servidor que provee el servicio de documentos clínicos
-                    </small>
-                  </div>
-                  
-                  {/* Departamento */}
-                  <div style={{marginBottom: '25px'}}>
-                    <label style={{
+                      API Key del Prestador
+                    </div>
+                    <code style={{
                       display: 'block',
-                      marginBottom: '8px',
-                      fontWeight: '600',
-                      color: '#374151'
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      background: '#111827',
+                      color: '#f9fafb',
+                      fontSize: '14px',
+                      wordBreak: 'break-all'
                     }}>
-                      Departamento
-                    </label>
-                    <select
-                      name="departamento"
-                      value={formData.departamento}
-                      onChange={handleInputChange}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '15px'
-                      }}
-                    >
-                      <option value="">-- Seleccione --</option>
-                      {departamentos.map(dept => (
-                        <option key={dept} value={dept}>
-                          {dept.replace('_', ' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {/* Localidad */}
-                  <div style={{marginBottom: '25px'}}>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '8px',
-                      fontWeight: '600',
-                      color: '#374151'
+                      {registroExitoso.apiKey || '—'}
+                    </code>
+                    <p style={{
+                      marginTop: '8px',
+                      fontSize: '13px',
+                      color: '#92400e'
                     }}>
-                      Localidad
-                    </label>
-                    <input
-                      name="localidad"
-                      type="text"
-                      value={formData.localidad}
-                      onChange={handleInputChange}
-                      placeholder="Ej: Montevideo"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '15px'
-                      }}
-                    />
+                      Copia y guarda esta API Key de forma segura. La necesitarás para configurar tu componente de Prestador de Salud.
+                    </p>
                   </div>
-                  
-                  {/* Dirección */}
-                  <div style={{marginBottom: '25px'}}>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '8px',
-                      fontWeight: '600',
-                      color: '#374151'
-                    }}>
-                      Dirección
-                    </label>
-                    <input
-                      name="direccion"
-                      type="text"
-                      value={formData.direccion}
-                      onChange={handleInputChange}
-                      placeholder="Ej: Av. Italia 2000"
+
+                  <div style={{ textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/')}
                       style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '15px'
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Teléfono */}
-                  <div style={{marginBottom: '30px'}}>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '8px',
-                      fontWeight: '600',
-                      color: '#374151'
-                    }}>
-                      Teléfono
-                    </label>
-                    <input
-                      name="telefono"
-                      type="tel"
-                      value={formData.telefono}
-                      onChange={handleInputChange}
-                      placeholder="Ej: 099 123 456"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '15px'
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Botón */}
-                  <div style={{textAlign: 'center'}}>
-                    <button 
-                      type="submit" 
-                      disabled={loading}
-                      style={{
-                        padding: '15px 50px',
-                        fontSize: '16px',
+                        padding: '12px 40px',
+                        fontSize: '15px',
                         fontWeight: '600',
                         color: '#ffffff',
-                        background: loading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                         border: 'none',
                         borderRadius: '8px',
-                        cursor: loading ? 'not-allowed' : 'pointer',
+                        cursor: 'pointer',
                         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
                       }}
                     >
-                      {loading ? 'Registrando...' : 'Completar Registro'}
+                      Volver al inicio
                     </button>
                   </div>
-                </form>
-              </div>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#ffffff',
+                  padding: '40px',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                }}>
+                  <form onSubmit={handleSubmit}>
+                    
+                    {/* RUT */}
+                    <div style={{marginBottom: '25px'}}>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        RUT *
+                      </label>
+                      <input
+                        name="rut"
+                        type="text"
+                        value={formData.rut}
+                        onChange={handleInputChange}
+                        placeholder="211234560012"
+                        maxLength="12"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '15px'
+                        }}
+                      />
+                      <small style={{color: '#6b7280', fontSize: '13px'}}>
+                        Registro Único Tributario (12 dígitos)
+                      </small>
+                    </div>
+                    
+                    {/* URL del Servidor */}
+                    <div style={{marginBottom: '25px'}}>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        URL del Servidor de Documentos Clínicos *
+                      </label>
+                      <input
+                        name="url"
+                        type="url"
+                        value={formData.url}
+                        onChange={handleInputChange}
+                        placeholder="https://api.miprestador.com"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '15px'
+                        }}
+                      />
+                      <small style={{color: '#6b7280', fontSize: '13px'}}>
+                        URL base de su servidor que provee el servicio de documentos clínicos
+                      </small>
+                    </div>
+                    
+                    {/* Departamento */}
+                    <div style={{marginBottom: '25px'}}>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        Departamento
+                      </label>
+                      <select
+                        name="departamento"
+                        value={formData.departamento}
+                        onChange={handleInputChange}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '15px'
+                        }}
+                      >
+                        <option value="">-- Seleccione --</option>
+                        {departamentos.map(dept => (
+                          <option key={dept} value={dept}>
+                            {dept.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Localidad */}
+                    <div style={{marginBottom: '25px'}}>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        Localidad
+                      </label>
+                      <input
+                        name="localidad"
+                        type="text"
+                        value={formData.localidad}
+                        onChange={handleInputChange}
+                        placeholder="Ej: Montevideo"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '15px'
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Dirección */}
+                    <div style={{marginBottom: '25px'}}>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        Dirección
+                      </label>
+                      <input
+                        name="direccion"
+                        type="text"
+                        value={formData.direccion}
+                        onChange={handleInputChange}
+                        placeholder="Ej: Av. Italia 2000"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '15px'
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Teléfono */}
+                    <div style={{marginBottom: '30px'}}>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        Teléfono
+                      </label>
+                      <input
+                        name="telefono"
+                        type="tel"
+                        value={formData.telefono}
+                        onChange={handleInputChange}
+                        placeholder="Ej: 099 123 456"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '15px'
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Botón */}
+                    <div style={{textAlign: 'center'}}>
+                      <button 
+                        type="submit" 
+                        disabled={loading}
+                        style={{
+                          padding: '15px 50px',
+                          fontSize: '16px',
+                          fontWeight: '600',
+                          color: '#ffffff',
+                          background: loading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: loading ? 'not-allowed' : 'pointer',
+                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                        }}
+                      >
+                        {loading ? 'Registrando...' : 'Completar Registro'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
               
             </div>
           </div>
